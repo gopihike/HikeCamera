@@ -75,7 +75,7 @@ public class CameraManager {
             }catch(IOException ioe){
                 ioe.printStackTrace();
             }
-            initPreviewSize(width,height);
+            initPreviewSize(width,height); //Decision for this call needs to be taken preview size should be initialized as soon as the Camera engine is made.
             mCamera.startPreview();
 
         }catch(final Exception ex){
