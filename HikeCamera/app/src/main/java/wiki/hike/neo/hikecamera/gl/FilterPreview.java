@@ -9,32 +9,16 @@ import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
 /**
- * Created by Neo on 09/10/17.
+ * Created by Neo on 10/10/17.
  */
 
-public class FilterGPU {
-
+public class FilterPreview {
     public static final int GL_TEXTURE_EXTERNAL_OES = 0x8D65;
     public static final int RENDER_TYPE_SURFACE_TEXTURE = 0;
     public static final int RENDER_TYPE_PREVIEW_BUFFER = 1;
+    private int mRenderType = RENDER_TYPE_PREVIEW_BUFFER;
 
-    private int mRenderType = RENDER_TYPE_SURFACE_TEXTURE;
-
-    private int mCameraSource = 0;
-
-    public static final String SURFACETEXTURE_FRAGEMENT_SHADER_OES = "" +
-            "#extension GL_OES_EGL_image_external : require\n" +
-            "precision mediump float;\n" +
-            "uniform lowp samplerExternalOES texSampler;\n" +
-            "varying highp vec2 v_texcoord;\n" +
-            "void main() {\n" +
-            "    vec4 color = texture2D(texSampler, v_texcoord);\n" +
-            "    gl_FragColor = color;\n" +
-            //"    gl_FragColor = vec4(1.0,0.0,0.0,0.0);\n"+
-
-            "}";
-
-    public static final String SURFACETEXTURE_VERTEX_SHADER = "" +
+    public static final String YUV_VS= "" +
             //"uniform mat4 u_MVPMatrix;\n" +
             "attribute vec4 a_position;\n" +
             "attribute vec2 a_texcoord;\n" +
@@ -44,6 +28,23 @@ public class FilterGPU {
             "gl_Position =  a_position;\n" +
             "v_texcoord = a_texcoord;\n" +
             "}";
+
+    public static final String YUV_FS = "" +
+            "precision highp float;\n" +
+            "varying highp vec2 v_texcoord;\n" +
+            "uniform sampler2D luminanceTexture;" +
+            "uniform sampler2D chrominanceTexture;" +
+            "void main() {\n" +
+            "   lowp float y = texture2D(luminanceTexture, v_texcoord).r;" +
+            "   lowp vec4 uv = texture2D(chrominanceTexture, v_texcoord);" +
+            "   mediump vec4 rgba = y * vec4(1.0, 1.0, 1.0, 1.0) + " +
+            "                  (uv.a - 0.5) * vec4(0.0, -0.337633, 1.732446, 0.0) + " +
+            "                  (uv.r - 0.5) * vec4(1.370705, -0.698001, 0.0, 0.0); " +
+            "	gl_FragColor = rgba;" +
+            "}";
+
+    //  Shader drawing YUV video frames on the surface
+
 
     protected int mGLProgId;
 
@@ -63,6 +64,7 @@ public class FilterGPU {
     protected short[] mIndices = {0, 1, 2, 1, 2, 3};
 
     protected int mVertexBufferObjectId;
+    private int mCameraSource;
 
     protected int mElementBufferObjectId;
 
@@ -74,30 +76,48 @@ public class FilterGPU {
     protected final int FLOAT_SIZE_BYTES = 4;
 
 
+    private boolean misSurfaceTexture;
+    private boolean misOes;
     protected final static String A_POSITION = "a_position";
     protected final static String A_TEXCOORD = "a_texcoord";
     protected final static String U_MVPMATRIX = "u_MVPMatrix";
     protected final static String U_SAMPLER0 = "texSampler";
+    protected final static String U_LUMINANCE_SAMPLER = "luminanceTexture";
+    protected final static String U_CHROMINANCE_SAMPLER = "chrominanceTexture";
+
 
     protected int maPositionHandle;
     protected int maTextureHandle;
     protected int muMVPMatrixHandle;
     protected int muSampler0Handle;
+    protected int mLumninanceSampler;
+    protected int mChrominanceSampler;
+
+
     private float[] mProjMatrix = new float[16];
 
     private String mVertexShader;
     private String mFragmentShader;
 
+    int mPreviewWidth;
+    int mPreviewHeight;
+    int mOrientation;
+    boolean mIsFrontFacing;
+
     private boolean mIsInitialized;
 
+    boolean isFilterInitialised()
+    {
+        return mIsInitialized;
+    }
 
-    public FilterGPU() {
+    public FilterPreview() {
 
         mIsInitialized = false;
         //this(SURFACETEXTURE_VERTEX_SHADER, SURFACETEXTURE_FRAGEMENT_SHADER_OES);
     }
 
-    public FilterGPU(String vertexShader, String fragmentShader) {
+    public FilterPreview(String vertexShader, String fragmentShader) {
         mVertexShader = vertexShader;
         mFragmentShader = fragmentShader;
     }
@@ -108,8 +128,8 @@ public class FilterGPU {
 
     public final void init()
     {
-        mVertexShader = SURFACETEXTURE_VERTEX_SHADER;
-        mFragmentShader = SURFACETEXTURE_FRAGEMENT_SHADER_OES;
+        mVertexShader = YUV_VS;
+        mFragmentShader = YUV_FS;
         onInit();
         onInitialized();
     }
@@ -148,7 +168,9 @@ public class FilterGPU {
         maPositionHandle = GLES20.glGetAttribLocation(mGLProgId, A_POSITION);
         maTextureHandle = GLES20.glGetAttribLocation(mGLProgId, A_TEXCOORD);
         //muMVPMatrixHandle = GLES20.glGetUniformLocation(mGLProgId, U_MVPMATRIX);
-        muSampler0Handle = GLES20.glGetUniformLocation(mGLProgId, U_SAMPLER0);
+        //muSampler0Handle = GLES20.glGetUniformLocation(mGLProgId, U_SAMPLER0);
+        mLumninanceSampler = GLES20.glGetUniformLocation(mGLProgId, U_LUMINANCE_SAMPLER);
+        mChrominanceSampler = GLES20.glGetUniformLocation(mGLProgId, U_CHROMINANCE_SAMPLER);
 
         mIsInitialized = true;
 
@@ -159,13 +181,12 @@ public class FilterGPU {
 
     }
 
-    public void onDraw(final int textureY,final int textureUV)
+    public void onDraw()
     {
-
 
     }
 
-    public void onDraw(final int textureId)
+    public void onDraw(final int textureIdY,final int textureIdUV)
     {
         GLES20.glUseProgram(mGLProgId);
         if (!mIsInitialized) {
@@ -173,9 +194,15 @@ public class FilterGPU {
         }
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureIdY);
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureIdUV);
 
-        GLES20.glBindTexture(FilterGPU.GL_TEXTURE_EXTERNAL_OES, textureId);
-        GLES20.glUniform1i(muSampler0Handle, 0);
+        GLES20.glUniform1i(mLumninanceSampler, 0);
+        GLES20.glUniform1i(mChrominanceSampler, 1);
+        //GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        //GLES20.glBindTexture(FilterGPU.GL_TEXTURE_EXTERNAL_OES, textureIdY);
+        //GLES20.glUniform1i(muSampler0Handle, 0);
         //GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mProjMatrix, 0);
 
         GLES20.glEnableVertexAttribArray(maPositionHandle);
@@ -209,5 +236,7 @@ public class FilterGPU {
 
     public void onDestroy() {
     }
+
+
 
 }

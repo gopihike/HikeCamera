@@ -20,7 +20,8 @@ public class OESTexture {
 	public int getTextureId(){
 		return mTextureHandle;
 	}
-	
+
+
 	public void init(){
 		int[] mTextureHandles = new int[1];
 		GLES20.glGenTextures(1, mTextureHandles, 0);

@@ -84,7 +84,7 @@ public class CameraEngine {
         @Override
         public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture,int width,int height){
             mCameraManager.setSurfaceTexture(surfaceTexture,width,height);
-            mCameraRenderer.initRenderer();
+            mCameraRenderer.initPreviewFrameRenderer(mCameraManager.getCameraOrientation(),mCameraManager.getPreviewWidth(),mCameraManager.getPrevieHeight(),mCameraManager.getmCameraFacing() == Camera.CameraInfo.CAMERA_FACING_FRONT);
         }
     }
 }
