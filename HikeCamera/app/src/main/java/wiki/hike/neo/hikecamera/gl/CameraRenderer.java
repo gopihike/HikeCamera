@@ -82,7 +82,7 @@ public class CameraRenderer implements
 		mRunOnDraw = new LinkedList<>();
 
 		//Set default filer
-		setFilter(new FilterPreviewBuffer());
+		setFilter(new FilterOES());
 	}
 
 
