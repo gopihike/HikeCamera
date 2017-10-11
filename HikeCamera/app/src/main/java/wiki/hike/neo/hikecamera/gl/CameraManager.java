@@ -18,27 +18,41 @@ import java.util.List;
 
 public class CameraManager {
     private Camera mCamera;
-    int mCameraWidth;
-    int mCameraHeight;
+    int mCameraWidth = 0;
+    int mCameraHeight = 0;
 
-    int mCameraFacing;
-    int mCameraOrientation;
-
+    int mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK; //By Default camera is facing front.
+    SurfaceTexture mSurfaceTexture;
     private List<CameraManager.CameraDescriptor> mDescriptors = null;
 
-    public CameraManager()
-    {
-        //Call to be take
-        //initializeBestPreviewSize();;
+    public CameraManager() {
+        //Required for front and back camera.
+        //Check for right preview size,picture size and fps.
+        initializeBestPreviewSize();
     }
+
+    public void onPause()
+    {
+        mSurfaceTexture = null;
+        if(mCamera != null){
+            mCamera.stopPreview();
+            mCamera.release();
+            mCamera = null;
+        }
+    }
+
+    public void onResume()
+    {
+        openCamera(getCameraFacing());
+    }
+
 
     //Code to be changed for getting best preview size.
     void initPreviewSize(int width,int height)
     {
         //set camera para-----------------------------------
-        mCameraWidth =0;
-        mCameraHeight =0;
-
+        //mCameraWidth =0;
+        //mCameraHeight =0;
         Camera.Parameters param = mCamera.getParameters();
         List<Camera.Size> psize = param.getSupportedPreviewSizes();
         if(psize.size() > 0 ){
@@ -67,45 +81,68 @@ public class CameraManager {
         return mCameraHeight;
     }
 
-    public void open()
+    boolean isCameraFacingFront()
     {
-        mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+       return mCameraFacing ==  Camera.CameraInfo.CAMERA_FACING_FRONT ? true : false;
     }
 
-    public Camera getCamera()
+    public void openCamera(int cameraFace)
     {
-        return mCamera;
-    }
-
-    void setSurfaceTexture(SurfaceTexture texture,int width,int height)
-    {
+        mCameraFacing = cameraFace;
         try{
             if(mCamera != null){
                 mCamera.stopPreview();
                 mCamera.release();
                 mCamera = null;
             }
-            mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
+            mCamera = Camera.open(mCameraFacing);
             try{
-                mCamera.setPreviewTexture(texture);
+                mCamera.setPreviewTexture(mSurfaceTexture);
             }catch(IOException ioe){
                 ioe.printStackTrace();
             }
-            initPreviewSize(width,height); //Decision for this call needs to be taken preview size should be initialized as soon as the Camera engine is made.
+            Camera.Parameters param = mCamera.getParameters();
+            param.setPreviewSize(mCameraWidth,mCameraHeight);
+            param.setPictureSize(mCameraWidth,mCameraHeight);
+            mCamera.setParameters(param);
             mCamera.startPreview();
-
-            Camera.CameraInfo info = new Camera.CameraInfo();
-            Camera.getCameraInfo(1, info);
-            Camera.Parameters parameters =  mCamera.getParameters();
-
-            mCameraFacing = info.facing;
-            mCameraOrientation = info.orientation;
 
         }catch(final Exception ex){
 
         }
     }
 
+    public void flipit()
+    {
+        synchronized(this) {
+            //myCamera is the Camera object
+            if (Camera.getNumberOfCameras()>=2) {
+                //"which" is just an integer flag
+                if(getCameraFacing() == Camera.CameraInfo.CAMERA_FACING_FRONT)
+                {
+                    openCamera(Camera.CameraInfo.CAMERA_FACING_BACK);
+                }
+                else
+                {
+                    openCamera(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                }
+            }
+        }
+
+    }
+
+
+    public Camera getCamera()
+    {
+        return mCamera;
+    }
+
+    void setSurfaceTexture(SurfaceTexture texture)
+    {
+        //We need this handle because.
+        mSurfaceTexture = texture;
+        openCamera(getCameraFacing());
+    }
 
     void setPreviewWidth(int width)
     {
@@ -127,12 +164,12 @@ public class CameraManager {
         return mCameraHeight;
     }
 
-    int getCameraOrientation()
+    void setCameraFacing(int cameraFace)
     {
-        return mCameraOrientation;
+        mCameraFacing = cameraFace;
     }
 
-    int getmCameraFacing()
+    int getCameraFacing()
     {
         return mCameraFacing;
     }
@@ -232,7 +269,6 @@ public class CameraManager {
 
                 setPreviewWidth(returnSize.getWidth());
                 setPreviewHeight(returnSize.getHeight());
-
                 //mObserver.onPreviewSizeSet(returnSize);
                 //Check
                 //EventBus.getDefault().post(new CameraPreviewSizeEvent(returnSize));
@@ -240,12 +276,7 @@ public class CameraManager {
             }
 
         } catch (Exception e) {
-            //bus.post(new CameraEngine.DeepImpactEvent(e));
         }
-
-        //  }
-        //};
-        //captureRunnable.run();
     }
 
     public class SizeP
@@ -292,7 +323,6 @@ public class CameraManager {
         private Camera getCamera() {
             return (camera);
         }
-
 
         public ArrayList<SizeP> getCameraPreviewSizes() {
             return (previewSizes);

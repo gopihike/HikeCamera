@@ -30,7 +30,7 @@ public class CameraRenderer implements
 	private Filter mFilter = null;
 
 	private Queue<Runnable> mRunOnDraw = null;
-
+	private Queue<Runnable> mRunOnDrawEnd = null;
 	//Renderer observer
 	private Observer mObserver;
 
@@ -39,24 +39,22 @@ public class CameraRenderer implements
 	private final OESTexture mCameraTexture = new OESTexture();
 	private int mWidth, mHeight;
 	private int mPreviewWidth,mPreviewHeight;
-	private int mOreintation;
-	boolean mIsFrontFacing;
+
 
 	ByteBuffer mBufferY;
 	ByteBuffer mBufferUV;
 
-
 	protected float[] mVerticesFrontCamera = {
-			-1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-			1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-			-1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			1.0f, 1.0f, 0.0f, 0.0f, 1.0f};
-
-	protected float[] mVerticesBackCamera = {
 			-1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
 			1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
 			-1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
 			1.0f, 1.0f, 0.0f, 1.0f, 0.0f};
+
+	protected float[] mVerticesBackCamera = {
+			-1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+			1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+			-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+			1.0f, 1.0f, 0.0f, 0.0f, 0.0f};
 
 
 	protected short[] mIndices = {0, 1, 2, 1, 2, 3};
@@ -67,6 +65,9 @@ public class CameraRenderer implements
 	protected int mElementBufferObjectId;
 
 	private FloatBuffer mVertexBuffer = null;
+	private FloatBuffer mVertexBufferFront = null;
+	private FloatBuffer mVertextBufferBack = null;
+
 
 	private ShortBuffer mIndexBuffer = null;
 
@@ -80,21 +81,18 @@ public class CameraRenderer implements
 		//super(context);
 		mContext = context;
 		mRunOnDraw = new LinkedList<>();
-
+		mRunOnDrawEnd  = new LinkedList<>();
 		//Set default filer
 		setFilter(new FilterOES());
 	}
 
 
 	//Called after startpreview has started.
-	public void initPreviewFrameRenderer(int orientation, int previewWidth,
-							 int previewHeight, boolean isFrontFacing)
+	public void initPreviewFrameRenderer(int previewWidth,
+							 int previewHeight)
 	{
 		mPreviewWidth = previewWidth;
 		mPreviewHeight = previewHeight;
-
-		mOreintation = orientation;
-		mIsFrontFacing = isFrontFacing;
 
 		runOnDraw(new Runnable() {
 			@Override
@@ -192,32 +190,53 @@ public class CameraRenderer implements
 	@Override
 	public synchronized void onSurfaceCreated(GL10 gl, EGLConfig config) {
 		//Code to create vertext and element buffer : Bascially  quad that is used to render objects.
-		if(mCameraSource == 0){
-			mVertexBuffer = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-			mVertexBuffer.put(mVerticesFrontCamera).position(0);
-		}else {
-			mVertexBuffer = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-			mVertexBuffer.put(mVerticesBackCamera).position(0);
-		}
 
-		mIndexBuffer = ByteBuffer.allocateDirect(mIndices.length * SHORT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asShortBuffer();
-		mIndexBuffer.put(mIndices).position(0);
+		//Decision to be taken whether we should create front and back buffer separately or should create only one.
+		//Flip time to be measured with both
+		flip(mManager.getCameraFacing());
+	}
 
-		int[] vboIds = new int[2];
-		GLES20.glGenBuffers(2, vboIds, 0);
-		mVertexBufferObjectId = vboIds[0];
-		mElementBufferObjectId = vboIds[1];
+	public void flip(final int cameraFacing)
+	{
+		//Optimize this call dont do buffer creations here.
+		//Just buffer ids here to make it performant but on doing in this we have cost of extra memory at native side.
+		//Take a call on this or use profiler.
+		runOnDrawEnd(new Runnable() {
+			@Override
+			public void run() {
+				if(cameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT)
+				{
+					mVertexBuffer = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+					mVertexBuffer.put(mVerticesFrontCamera).position(0);
+				}
+				else
+				{
+					mVertexBuffer = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+					mVertexBuffer.put(mVerticesBackCamera).position(0);
+				}
+				mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+				mVertexBufferFront.put(mVerticesFrontCamera).position(0);
+				mVertextBufferBack = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+				mVertextBufferBack.put(mVerticesBackCamera).position(0);
 
+				mIndexBuffer = ByteBuffer.allocateDirect(mIndices.length * SHORT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asShortBuffer();
+				mIndexBuffer.put(mIndices).position(0);
 
-		GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
-		GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * FLOAT_SIZE_BYTES, mVertexBuffer, GLES20.GL_STATIC_DRAW);
+				int[] vboIds = new int[2];
+				GLES20.glGenBuffers(2, vboIds, 0);
+				mVertexBufferObjectId = vboIds[0];
+				mElementBufferObjectId = vboIds[1];
 
-		GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, mElementBufferObjectId);
-		GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, mIndexBuffer.capacity() * SHORT_SIZE_BYTES, mIndexBuffer, GLES20.GL_STATIC_DRAW);
+				GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
+				GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * FLOAT_SIZE_BYTES, mVertexBuffer, GLES20.GL_STATIC_DRAW);
 
-		mIndexBuffer = null;
-		mVertexBuffer = null;
+				GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, mElementBufferObjectId);
+				GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, mIndexBuffer.capacity() * SHORT_SIZE_BYTES, mIndexBuffer, GLES20.GL_STATIC_DRAW);
 
+				mIndexBuffer = null;
+				mVertexBuffer = null;
+			}
+		});
 	}
 
 
@@ -243,7 +262,7 @@ public class CameraRenderer implements
 
 		//Surface texture created.
 		if (mObserver != null) {
-			mObserver.onSurfaceTextureCreated(mSurfaceTexture, mWidth, mHeight);
+			mObserver.onSurfaceTextureCreated(mSurfaceTexture);
 		}
 	}
 
@@ -271,6 +290,7 @@ public class CameraRenderer implements
 				}
 				break;
 		}
+		runAll(mRunOnDrawEnd);
 	}
 	
 	public void onDestroy(){
@@ -325,6 +345,12 @@ public class CameraRenderer implements
 		}
 	}
 
+	protected void runOnDrawEnd(final Runnable runnable) {
+		synchronized (mRunOnDrawEnd) {
+			mRunOnDrawEnd.add(runnable);
+		}
+	}
+
 	public void setObserver(Observer observer) {
 		mObserver = observer;
 	}
@@ -332,7 +358,7 @@ public class CameraRenderer implements
 
 
 	public interface Observer {
-		public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture, int width, int height);
+		public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture);
 	}
 
 
