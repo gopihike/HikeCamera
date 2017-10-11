@@ -8,7 +8,6 @@ import android.opengl.GLES20;
 
 public class PreviewFrameTexture {
 
-
     int [] mPreviewTexture = {0,0};
 
     int [] getTextureHandle()

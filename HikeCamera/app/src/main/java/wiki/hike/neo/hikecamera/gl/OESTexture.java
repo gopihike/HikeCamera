@@ -10,14 +10,14 @@ import android.opengl.GLES20;
  *
  */
 public class OESTexture {
-	private int mTextureHandle;
+	private int[] mTextureHandle;
 
 	public OESTexture() {
 		// TODO Auto-generated constructor stub
 		
 	}
 	
-	public int getTextureId(){
+	public int[] getTextureId(){
 		return mTextureHandle;
 	}
 
@@ -25,7 +25,8 @@ public class OESTexture {
 	public void init(){
 		int[] mTextureHandles = new int[1];
 		GLES20.glGenTextures(1, mTextureHandles, 0);
-		mTextureHandle = mTextureHandles[0];
+		mTextureHandle = new int[1];
+		mTextureHandle[0] = mTextureHandles[0];
 		
 		GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, mTextureHandles[0]);
 		GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
