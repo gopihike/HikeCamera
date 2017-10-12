@@ -27,12 +27,10 @@ import android.util.Log;
 
 public class CameraEngine {
 
-    //Commands are passed to camera engine and is should be handled camera.
+    //Commands are passed to camera engine and is should be handled by camera.
     //Should help in recognising camera calls when it spreads in a big code base.
-    //Any client using this engine can only interacts using commands.
+    //Any client using this engine can only interact using commands.
     //So bug fixing and code maintainance will be easy.
-
-
     public static final int NO_COMMAND = 0;
     public static final int COMMAND_FLIP = 1;
     public static final int COMMAND_SNAPSHOT = 2;
@@ -43,6 +41,13 @@ public class CameraEngine {
     public static int RECORDING_STATE_ON = 0;
     public static int RECORDING_STATE_OFF = 1;
 
+    public static int ENGINE_STATE_CREATE = 0;
+    public static int ENGINE_STATE_RESUME = 1;
+    public static int ENGINE_STATE_PAUSE = 2;
+    public static int ENGINE_STATE_NOT_DEFINED = 3;
+
+
+
     CameraManager mCameraManager;
     GLSurfaceView mSurfaceView;
     CameraRenderer mCameraRenderer;
@@ -52,6 +57,7 @@ public class CameraEngine {
 
     int mCurrentCommand = NO_COMMAND;
 
+    int mEngineState = ENGINE_STATE_NOT_DEFINED;
     //Create a filter factory;
     Filter mFilter;
 
@@ -79,6 +85,8 @@ public class CameraEngine {
         //Call back generated.
         mSurfaceView.setRenderer(mCameraRenderer);
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        setEngineState(ENGINE_STATE_CREATE);
+
     }
 
     public void setGLSurfaceView(GLSurfaceView surfaceView) {
@@ -87,10 +95,12 @@ public class CameraEngine {
     public void onDestroy() {
     }
 
+    //Inflip operation camera is destoryed and created again so previewBuffer needs to be created
     public void flip() {
         mCameraManager.flipit();
-        mCameraRenderer.flip(mCameraManager.getCameraFacing());
-        Log.e("CAMERA_ENGINE", "Camera facing : " + mCameraManager.getCameraFacing());
+        mCameraRenderer.flipWithCallBackReset(mCameraManager.getCameraFacing());
+
+        Log.e("ENGINE", "Camera facing : " + mCameraManager.getCameraFacing());
     }
 
     public void startRecording()
@@ -105,8 +115,17 @@ public class CameraEngine {
 
     public void onResume()
     {
+        if(getEngineState() == ENGINE_STATE_PAUSE)
+        {
+            //Green frame might be seen when Filter type is preview buffer because for one frame cycle there will be no camera frame available for renderer to draw
+            //but draw call will be active so draw will be called and because of YUV to RGB conversion logic green frame might be seen.
+            //Fix would be not to draw until valid camera frame is available.
+            mCameraManager.onResume();
+            mCameraRenderer.setCallBackBasedOnFilter();
+        }
         mSurfaceView.onResume();
-        //Check if we need to start the camera.
+
+        setEngineState(ENGINE_STATE_RESUME);
     }
 
     public  void onPause()
@@ -116,6 +135,7 @@ public class CameraEngine {
 
         mSurfaceView.onPause();
         mCameraManager.onPause();
+        setEngineState(ENGINE_STATE_PAUSE);
     }
 
     public void processCommand(int command)
@@ -145,6 +165,16 @@ public class CameraEngine {
     int getmRecordingState()
     {
         return mRecordingState;
+    }
+
+    void setEngineState(int state)
+    {
+        mEngineState = state;
+    }
+
+    int getEngineState()
+    {
+        return mEngineState;
     }
 
     private class RendererObserver implements CameraRenderer.Observer{

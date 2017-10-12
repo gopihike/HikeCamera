@@ -19,7 +19,6 @@ import java.nio.ShortBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
 
-
 public class CameraRenderer implements
 								GLSurfaceView.Renderer, 
 								SurfaceTexture.OnFrameAvailableListener, Camera.PreviewCallback {
@@ -83,9 +82,16 @@ public class CameraRenderer implements
 		mRunOnDraw = new LinkedList<>();
 		mRunOnDrawEnd  = new LinkedList<>();
 		//Set default filer
+
 		setFilter(new FilterOES());
 	}
 
+	public void onResume()
+	{
+		//setFilter again safe check.
+
+
+	}
 
 	//Called after startpreview has started.
 	public void initPreviewFrameRenderer(int previewWidth,
@@ -196,6 +202,12 @@ public class CameraRenderer implements
 		flip(mManager.getCameraFacing());
 	}
 
+	public void flipWithCallBackReset(final int cameraFacing)
+	{
+		setCallBackBasedOnFilter();
+		flip(cameraFacing);
+	}
+
 	public void flip(final int cameraFacing)
 	{
 		//Optimize this call dont do buffer creations here.
@@ -260,7 +272,6 @@ public class CameraRenderer implements
 
 		mSurfaceTexture.setOnFrameAvailableListener(this);
 
-		//Surface texture created.
 		if (mObserver != null) {
 			mObserver.onSurfaceTextureCreated(mSurfaceTexture);
 		}
@@ -272,7 +283,6 @@ public class CameraRenderer implements
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 		runAll(mRunOnDraw); //Using this queue to process anything that comes from thread withoutGL context.
 
-		//Put a single onDraw called here.
 		switch (mFilter.getRenderType())
 		{
 			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
@@ -299,13 +309,16 @@ public class CameraRenderer implements
 	}
 
 
-	void setCallBackBasedOnFilter()
+	public void setCallBackBasedOnFilter()
 	{
 		switch (mFilter.getRenderType())
 		{
 			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
 				mSurfaceTexture.setOnFrameAvailableListener(null);
 				mManager.getCamera().setPreviewCallbackWithBuffer(this);
+				for (int i = 0; i < 3; i++) {
+					mManager.getCamera().addCallbackBuffer(new byte[mPreviewWidth *mPreviewHeight * 3 / 2]);
+				}
 				break;
 			case Filter.RENDER_TYPE_SURFACE_TEXTURE:
 				mManager.getCamera().setPreviewCallbackWithBuffer(null);
@@ -355,11 +368,7 @@ public class CameraRenderer implements
 		mObserver = observer;
 	}
 
-
-
 	public interface Observer {
 		public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture);
 	}
-
-
 }

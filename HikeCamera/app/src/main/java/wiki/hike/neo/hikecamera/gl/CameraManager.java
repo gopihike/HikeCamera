@@ -33,7 +33,7 @@ public class CameraManager {
 
     public void onPause()
     {
-        mSurfaceTexture = null;
+        //mSurfaceTexture = null;
         if(mCamera != null){
             mCamera.stopPreview();
             mCamera.release();
