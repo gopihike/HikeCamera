@@ -200,6 +200,24 @@ public class CameraRenderer implements
 		//Decision to be taken whether we should create front and back buffer separately or should create only one.
 		//Flip time to be measured with both
 		flip(mManager.getCameraFacing());
+
+		//generate camera texture------------------------
+		mCameraTexture.init();
+
+		mPreviewFrameTexture.init();
+
+		//set up surfacetexture------------------
+		SurfaceTexture oldSurfaceTexture = mSurfaceTexture;
+		mSurfaceTexture = new SurfaceTexture(mCameraTexture.getTextureId()[0]);
+		if (oldSurfaceTexture != null) {
+			oldSurfaceTexture.release();
+		}
+
+		mSurfaceTexture.setOnFrameAvailableListener(this);
+
+		if (mObserver != null) {
+			mObserver.onSurfaceTextureCreated(mSurfaceTexture);
+		}
 	}
 
 	public void flipWithCallBackReset(final int cameraFacing)
@@ -258,23 +276,7 @@ public class CameraRenderer implements
 		mHeight = height;
 		GLES20.glViewport(0, 0, mWidth, mHeight);
 
-		//generate camera texture------------------------
-		mCameraTexture.init();
 
-		mPreviewFrameTexture.init();
-
-		//set up surfacetexture------------------
-		SurfaceTexture oldSurfaceTexture = mSurfaceTexture;
-		mSurfaceTexture = new SurfaceTexture(mCameraTexture.getTextureId()[0]);
-		if (oldSurfaceTexture != null) {
-			oldSurfaceTexture.release();
-		}
-
-		mSurfaceTexture.setOnFrameAvailableListener(this);
-
-		if (mObserver != null) {
-			mObserver.onSurfaceTextureCreated(mSurfaceTexture);
-		}
 	}
 
 	@Override
@@ -363,6 +365,7 @@ public class CameraRenderer implements
 			mRunOnDrawEnd.add(runnable);
 		}
 	}
+
 
 	public void setObserver(Observer observer) {
 		mObserver = observer;
