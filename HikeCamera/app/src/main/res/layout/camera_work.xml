@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <android.opengl.GLSurfaceView
+        android:id="@+id/renderer_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true">
+
+
+        <RelativeLayout
+            android:id="@+id/camera_stack_ui"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:animateLayoutChanges="true">
+
+
+            <ImageView
+                android:id="@+id/btn_camera_cancel"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_margin="4dp"
+                android:background="@null"
+                android:src="@drawable/ic_camera_close" />
+
+            <ImageView
+                android:id="@+id/btn_camera_switch"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentRight="true"
+                android:layout_alignParentTop="true"
+                android:layout_margin="4dp"
+                android:background="@null"
+                android:src="@drawable/ic_camera_rearcamera" />
+
+
+            <TextView
+                android:id="@+id/fps"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_above="@+id/rendermode"
+                android:layout_alignEnd="@+id/rendermode"
+                android:layout_alignRight="@+id/rendermode"
+                android:layout_marginBottom="10dp"
+                android:text="FPS" />
+
+
+            <TextView
+                android:id="@+id/rendermode"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_above="@+id/opentime"
+                android:layout_alignEnd="@+id/opentime"
+                android:layout_alignRight="@+id/opentime"
+                android:layout_marginBottom="10dp"
+                android:text="RMmode" />
+
+            <TextView
+                android:id="@+id/opentime"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_above="@+id/fliptime"
+                android:layout_alignEnd="@+id/fliptime"
+                android:layout_alignRight="@+id/fliptime"
+                android:layout_marginBottom="10dp"
+                android:text="Opentime" />
+
+
+            <TextView
+                android:id="@+id/fliptime"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_alignParentLeft="true"
+                android:text="Fliptime" />
+
+
+            <ImageView
+                android:id="@+id/btn_camera_capture"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginBottom="20dp"
+                android:background="@null"
+                android:src="@drawable/camera_capture_inner"
+                android:transitionName="homeIcon" />
+
+
+        </RelativeLayout>
+    </FrameLayout>
+
+</RelativeLayout>
