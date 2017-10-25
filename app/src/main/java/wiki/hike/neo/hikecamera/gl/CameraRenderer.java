@@ -16,10 +16,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -48,7 +50,13 @@ public class CameraRenderer implements
 	private Queue<Runnable> mRunOnDrawStart = null;
 	private Queue<Runnable> mRunOnDrawEnd = null;
 
-    //Renderer observer
+	private ArrayList<Runnable> mRunOnDrawStartAlways = null;
+	private ArrayList<Runnable> mRunOnDrawEndAlways = null;
+
+	private ArrayList<Integer> mRunOnDrawStartAlwaysIndex = null;
+	private ArrayList<Integer> mRunOnDrawEndAlwaysIndex = null;
+
+	//Renderer observer
 	private Observer mObserver;
 
 	//private final FBORenderTarget mRenderTarget = new FBORenderTarget();
@@ -56,7 +64,6 @@ public class CameraRenderer implements
 	private final OESTexture mCameraTexture = new OESTexture();
 	private int mSurfaceWidth, mSurfaceHeight;
 	private int mPreviewWidth,mPreviewHeight;
-
 
 	ByteBuffer mBufferY;
 	ByteBuffer mBufferUV;
@@ -97,6 +104,8 @@ public class CameraRenderer implements
 
 	private boolean updateTexture = false;
 
+	Integer m_videoBufferId = 0;
+
 	//Video . Remove this ugly call once video recording is done.
 	FrameBuffer mFrameBuffer = null;
 
@@ -106,6 +115,12 @@ public class CameraRenderer implements
 
         mRunOnDrawStart =  new LinkedList<>();
 		mRunOnDrawEnd  = new LinkedList<>();
+
+		mRunOnDrawStartAlways = new ArrayList<>();
+		mRunOnDrawEndAlways = new ArrayList<>();
+
+		mRunOnDrawStartAlwaysIndex = new ArrayList<>();
+		mRunOnDrawEndAlwaysIndex = new ArrayList<>();
 
 		mPreviewWidth = previewWidth;
 		mPreviewHeight = previewHeight;
@@ -131,35 +146,82 @@ public class CameraRenderer implements
 	//Video. Kindly beautify this piece of code.VideoEncoder should act as filter.
 	public void setVideoEncoder(MediaVideoEncoder videoEncoder)
 	{
-	    //Create VideoEncoder filter.
-        this.mVideoEncoder = videoEncoder;
-		if(videoEncoder == null) {
-			mIsRecordingStarted = false;
-			return;
+		this.mVideoEncoder = videoEncoder;
+		if(videoEncoder == null)
+		{
+			//Beautify this code with right data structure;
+			runOnDrawStart(new Runnable() {
+				@Override
+				public void run() {
+					mFilterRecorder = null;
+					mFrameBuffer.releaseFrameBuffer();
+
+					synchronized (mRunOnDrawStartAlwaysIndex) {
+						int i=0;
+						for(Integer item : mRunOnDrawStartAlwaysIndex)
+						{
+							if(item == m_videoBufferId)
+							{
+								mRunOnDrawStartAlwaysIndex.remove(item);
+								mRunOnDrawEndAlwaysIndex.remove(item);
+								break;
+							}
+							++i;
+						}
+
+						int k=0;
+						for(Runnable item : mRunOnDrawStartAlways)
+						{
+							if(i == k)
+							{
+								mRunOnDrawStartAlways.remove(item);
+								mRunOnDrawEndAlways.remove(item);
+								break;
+							}
+						}
+					}
+				}
+			});
 		}
-		//This should be pushed in start queueOneTime
-		//Create frame buffer here in Gl thread.
-		//Frame buffer creation might be a costly operation.Take a call on if we want to create frame buffer every time when a recording event happens or just create once.
+		else
+		{
+			runOnDrawStart(new Runnable() {
+				@Override
+				public void run() {
+					if(mFilterRecorder== null) {
+						mFilterRecorder = new FilterRecorder();
+						mFilterRecorder.init();
+					}
 
-        //Set video encoder in once only queue.
-        mSurfaceView.queueEvent(new Runnable() {
-			@Override
-			public void run() {
-				if(mFilterRecorder== null) {
-					mFilterRecorder = new FilterRecorder();
-					mFilterRecorder.init();
+					if(mFrameBuffer == null)
+						mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO,mSurfaceWidth,mSurfaceHeight);
+
+					if (mVideoEncoder != null) {
+						mVideoEncoder.setEglContext(EGL14.eglGetCurrentContext(),mFrameBuffer.getTextureID());
+					}
 				}
+			});
 
-				if(mFrameBuffer == null)
-					mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO,mSurfaceWidth,mSurfaceHeight);
-
-				if (mVideoEncoder != null) {
-					mVideoEncoder.setEglContext(EGL14.eglGetCurrentContext(),mFrameBuffer.getTextureID());
+			//Push code in queue on start and on end.
+			runOnDrawStartAlways(new Runnable() {
+				@Override
+				public void run() {
+					mFrameBuffer.bindFrameBuffer();;
 				}
-				mIsRecordingStarted = true;
-			}
-		});
-	}
+			},m_videoBufferId);
+
+			runOnDrawEndAlways(new Runnable() {
+				@Override
+				public void run() {
+					mVideoEncoder.frameAvailableSoon(/*mGLCubeBuffer, mGLTextureBuffer*/);
+					//VIDEO: Put this call inside end queue that process till start and end recording.
+					GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+					//Create a filter of type  Sampler2D.
+					mFilterRecorder.onDraw(mFrameBuffer.getTextureIDArr(), mElementBufferObjectId);
+				}
+			},m_videoBufferId);
+		}
+   }
 
 	//Called after startpreview has started.
 	public void initPreviewFrameRenderer(/*int previewWidth,int previewHeight*/)
@@ -433,10 +495,8 @@ public class CameraRenderer implements
 	    Log.v("Sourav", "Surface width : " + width + ", Surface height : " + height);
 		mSurfaceWidth = width;
 		mSurfaceHeight = height;
-
 		//Video
 		//mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO,mSurfaceWidth,mSurfaceHeight);
-
 		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
 	}
 
@@ -444,13 +504,9 @@ public class CameraRenderer implements
 	public synchronized void onDrawFrame(GL10 gl) {
 		GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-		runAll(mRunOnDrawStart); //Using this queue to process anything that comes from thread withoutGL context.
 
-		//Put this ugly call in start queue.Permanence is valid till start and stop video recording.
-		//Video encoder should act as filter.Use of boolean is not at all allowed.
-		if (mVideoEncoder != null && mIsRecordingStarted) {
-				mFrameBuffer.bindFrameBuffer();
-		}
+		runAll(mRunOnDrawStart); //Using this queue to process anything that comes from thread withoutGL context.
+		runAllAlways(mRunOnDrawStartAlways);
 
 		switch (mFilter.getRenderType())
 		{
@@ -469,13 +525,7 @@ public class CameraRenderer implements
 				break;
 		}
 
-		if(mVideoEncoder != null && mIsRecordingStarted) {
-			mVideoEncoder.frameAvailableSoon(/*mGLCubeBuffer, mGLTextureBuffer*/);
-			//VIDEO: Put this call inside end queue that process till start and end recording.
-			GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-			//Create a filter of type  Sampler2D.
-			mFilterRecorder.onDraw(mFrameBuffer.getTextureIDArr(), mElementBufferObjectId);
-		}
+		runAllAlways(mRunOnDrawEndAlways);
 		runAll(mRunOnDrawEnd);
 	}
 	
@@ -539,7 +589,38 @@ public class CameraRenderer implements
         }
     }
 
-   public void setObserver(Observer observer) {
+	protected void runOnDrawStartAlways(final Runnable runnable,final int index) {
+		synchronized (mRunOnDrawStartAlways) {
+			mRunOnDrawStartAlways.add(runnable);
+		}
+
+		synchronized (mRunOnDrawStartAlwaysIndex) {
+			mRunOnDrawStartAlwaysIndex.add(index);
+		}
+
+	}
+
+	protected void runOnDrawEndAlways(final Runnable runnable,final int index) {
+		synchronized (mRunOnDrawEndAlways) {
+			mRunOnDrawEndAlways.add(runnable);
+		}
+
+		synchronized (mRunOnDrawStartAlwaysIndex) {
+			mRunOnDrawStartAlwaysIndex.add(index);
+		}
+	}
+
+	private void runAllAlways(ArrayList<Runnable> arr)
+	{
+		synchronized (arr) {
+			for(Runnable item : arr)
+			{
+				item.run();
+			}
+		}
+	}
+
+   	public void setObserver(Observer observer) {
 		mObserver = observer;
 	}
 
