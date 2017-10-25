@@ -607,6 +607,8 @@ public class CameraRenderer implements
 
 	public static void saveBitMapDebug(Bitmap bitmap, Bitmap.CompressFormat compressFormat, int quality)throws IOException {
 		{
+			int i =1;
+
 			FileOutputStream fos = null;
 			try {
 				File f = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
