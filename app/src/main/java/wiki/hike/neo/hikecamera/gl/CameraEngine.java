@@ -185,7 +185,7 @@ public class CameraEngine {
         switch (mRecordingState) {
             case RECORDING_STATE_ON:
                 try {
-                    String fileName = "AANewVideo" + System.currentTimeMillis() + ".mp4";
+                    String fileName = "TestVideo" + System.currentTimeMillis() + ".mp4";
                     //File cacheDir = mContext.getCacheDir();
                     //cacheDir.mkdirs();
                     String file_path = Environment.getExternalStorageDirectory().getAbsolutePath() +

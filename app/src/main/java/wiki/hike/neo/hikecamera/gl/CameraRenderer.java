@@ -42,12 +42,13 @@ public class CameraRenderer implements
 
 	//Video.
 	private boolean mIsRecordingStarted = false;
-	private Filter mFilterFrameBuffer = null; //This is called only when.
+	private Filter mFilterRecorder = null; //This is called only when.
 	private MediaVideoEncoder mVideoEncoder;
 
-	private Queue<Runnable> mRunOnDraw = null;
+	private Queue<Runnable> mRunOnDrawStart = null;
 	private Queue<Runnable> mRunOnDrawEnd = null;
-	//Renderer observer
+
+    //Renderer observer
 	private Observer mObserver;
 
 	//private final FBORenderTarget mRenderTarget = new FBORenderTarget();
@@ -72,30 +73,6 @@ public class CameraRenderer implements
 			-1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 			1.0f, 1.0f, 0.0f, 0.0f, 0.0f};
 
-	//Video. Remove this code and make it a part of video filter.
-	protected float[] mPositionCoords =
-	{
-			-1.0f,-1.0f,
-			1.0f,-1.0f,
-			-1.0f,1.0f,
-			1.0f,1.0f,
-	};
-
-	protected float[] mTextureCoordsFront =
-	{
-			0.0f,1.0f,
-			0.0f,0.0f,
-			1.0f,1.0f,
-			1.0f,0.0f,
-	};
-
-	protected float[] mTextureCoordsBack =
-	{
-			1.0f,1.0f,
-			1.0f,0.0f,
-			0.0f,1.0f,
-			0.0f,0.0f,
-	};
 
 	protected FloatBuffer mGLCubeBuffer = null;
 
@@ -111,7 +88,7 @@ public class CameraRenderer implements
 
 	private FloatBuffer mVertexBuffer = null;
 	private FloatBuffer mVertexBufferFront = null;
-	private FloatBuffer mVertextBufferBack = null;
+	private FloatBuffer mVertexBufferBack = null;
 
 	private ShortBuffer mIndexBuffer = null;
 
@@ -126,18 +103,24 @@ public class CameraRenderer implements
 	public CameraRenderer(Context context,int previewWidth,int previewHeight) {
 		//super(context);
 		mContext = context;
-		mRunOnDraw = new LinkedList<>();
+
+        mRunOnDrawStart =  new LinkedList<>();
 		mRunOnDrawEnd  = new LinkedList<>();
 
 		mPreviewWidth = previewWidth;
 		mPreviewHeight = previewHeight;
 
-		mGLCubeBuffer = ByteBuffer.allocateDirect(mPositionCoords.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-		mGLCubeBuffer.put(mPositionCoords).position(0);
+		//Create all buffers before hand.
+		mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+		float[] modifiedBuffer = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_FRONT);//modifyTextureBuffers(cameraFacing);//
+		mVertexBufferFront.put(modifiedBuffer).position(0);
 
-		//Video
-		//Frame buffer created.
-		//Set default filer
+		mVertexBufferBack = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+		float[] modifiedBufferBack = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);;
+		mVertexBufferBack.put(modifiedBufferBack).position(0);
+
+		mIndexBuffer = ByteBuffer.allocateDirect(mIndices.length * SHORT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asShortBuffer();
+		mIndexBuffer.put(mIndices).position(0);
 	}
 
 	public void onResume()
@@ -148,7 +131,8 @@ public class CameraRenderer implements
 	//Video. Kindly beautify this piece of code.VideoEncoder should act as filter.
 	public void setVideoEncoder(MediaVideoEncoder videoEncoder)
 	{
-		this.mVideoEncoder = videoEncoder;
+	    //Create VideoEncoder filter.
+        this.mVideoEncoder = videoEncoder;
 		if(videoEncoder == null) {
 			mIsRecordingStarted = false;
 			return;
@@ -157,12 +141,13 @@ public class CameraRenderer implements
 		//Create frame buffer here in Gl thread.
 		//Frame buffer creation might be a costly operation.Take a call on if we want to create frame buffer every time when a recording event happens or just create once.
 
-		mSurfaceView.queueEvent(new Runnable() {
+        //Set video encoder in once only queue.
+        mSurfaceView.queueEvent(new Runnable() {
 			@Override
 			public void run() {
-				if(mFilterFrameBuffer== null) {
-					mFilterFrameBuffer = new Filter();
-					mFilterFrameBuffer.init();
+				if(mFilterRecorder== null) {
+					mFilterRecorder = new FilterRecorder();
+					mFilterRecorder.init();
 				}
 
 				if(mFrameBuffer == null)
@@ -182,7 +167,7 @@ public class CameraRenderer implements
 		//mPreviewWidth = previewWidth;
 		//mPreviewHeight = previewHeight;
 
-		runOnDraw(new Runnable() {
+		runOnDrawStart(new Runnable() {
 			@Override
 			public void run() {
 				mPreviewFrameTexture.initWithPreview(mPreviewWidth,mPreviewHeight);
@@ -415,41 +400,10 @@ public class CameraRenderer implements
 
 	public void flip(final int cameraFacing)
 	{
-		//Optimize this call dont do buffer creations here.
-		//Just buffer ids here to make it performant but on doing in this we have cost of extra memory at native side.
-		//Take a call on this or use profiler.
-		runOnDraw(new Runnable() {
+		//Create buffers during construction.
+		runOnDrawStart(new Runnable() {
 			@Override
 			public void run() {
-
-				if(cameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT)
-				{
-                    mVertexBuffer = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-                    float[] modifiedBuffer = modifyTextureBuffers(cameraFacing);//modifyTextureBuffers(cameraFacing);//
-                    mVertexBuffer.put(modifiedBuffer).position(0);
-
-					//Video
-					mGLTextureBuffer = ByteBuffer.allocateDirect(mTextureCoordsFront.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-					mGLTextureBuffer.put(mTextureCoordsFront).position(0);
-				}
-				else
-				{
-					mVertexBuffer = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-                    float[] modifiedBuffer = modifyTextureBuffers(cameraFacing);;
-				    mVertexBuffer.put(modifiedBuffer).position(0);
-
-					//Video
-					mGLTextureBuffer = ByteBuffer.allocateDirect(mTextureCoordsBack.length * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
-					mGLTextureBuffer.put(mTextureCoordsBack).position(0);
-				}
-
-				mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-				mVertexBufferFront.put(mVerticesFrontCamera).position(0);
-				mVertextBufferBack = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-				mVertextBufferBack.put(mVerticesBackCamera).position(0);
-
-				mIndexBuffer = ByteBuffer.allocateDirect(mIndices.length * SHORT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asShortBuffer();
-				mIndexBuffer.put(mIndices).position(0);
 
 				int[] vboIds = new int[2];
 				GLES20.glGenBuffers(2, vboIds, 0);
@@ -457,14 +411,17 @@ public class CameraRenderer implements
 				mElementBufferObjectId = vboIds[1];
 
 				GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
-				GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * FLOAT_SIZE_BYTES, mVertexBuffer, GLES20.GL_STATIC_DRAW);
+				if(cameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT)
+				{
+                   	GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBufferFront.capacity() * FLOAT_SIZE_BYTES, mVertexBufferFront, GLES20.GL_STATIC_DRAW);
+				}
+				else
+				{
+					GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBufferBack.capacity() * FLOAT_SIZE_BYTES, mVertexBufferBack, GLES20.GL_STATIC_DRAW);
+				}
 
 				GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, mElementBufferObjectId);
 				GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, mIndexBuffer.capacity() * SHORT_SIZE_BYTES, mIndexBuffer, GLES20.GL_STATIC_DRAW);
-
-
-				mIndexBuffer = null;
-				mVertexBuffer = null;
 			}
 		});
 	}
@@ -487,7 +444,7 @@ public class CameraRenderer implements
 	public synchronized void onDrawFrame(GL10 gl) {
 		GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-		runAll(mRunOnDraw); //Using this queue to process anything that comes from thread withoutGL context.
+		runAll(mRunOnDrawStart); //Using this queue to process anything that comes from thread withoutGL context.
 
 		//Put this ugly call in start queue.Permanence is valid till start and stop video recording.
 		//Video encoder should act as filter.Use of boolean is not at all allowed.
@@ -498,7 +455,6 @@ public class CameraRenderer implements
 		switch (mFilter.getRenderType())
 		{
 			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
-
 				Log.e("ENGINE","DRAW CALLED");
 				mFilter.onDraw(mPreviewFrameTexture.getTextureHandle(),mVertexBufferObjectId,mElementBufferObjectId);
 				//mFilter.onDraw(mPreviewFrameTexture.getYTextureHandle(),mPreviewFrameTexture.getUVTextureHandle());
@@ -513,15 +469,13 @@ public class CameraRenderer implements
 				break;
 		}
 
-		if(mVideoEncoder != null && mIsRecordingStarted)
-		{
-			mVideoEncoder.frameAvailableSoon(mGLCubeBuffer, mGLTextureBuffer);
+		if(mVideoEncoder != null && mIsRecordingStarted) {
+			mVideoEncoder.frameAvailableSoon(/*mGLCubeBuffer, mGLTextureBuffer*/);
 			//VIDEO: Put this call inside end queue that process till start and end recording.
 			GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
 			//Create a filter of type  Sampler2D.
-			mFilterFrameBuffer.onDraw(mFrameBuffer.getTextureIDArr(),mVertexBufferObjectId,mElementBufferObjectId);
+			mFilterRecorder.onDraw(mFrameBuffer.getTextureIDArr(), mElementBufferObjectId);
 		}
-
 		runAll(mRunOnDrawEnd);
 	}
 	
@@ -550,7 +504,7 @@ public class CameraRenderer implements
 	}
 
 	public void setFilter(final Filter filter) {
-		runOnDraw(new Runnable() {
+        runOnDrawStart(new Runnable() {
 
 			@Override
 			public void run() {
@@ -573,20 +527,19 @@ public class CameraRenderer implements
 		}
 	}
 
-	protected void runOnDraw(final Runnable runnable) {
-		synchronized (mRunOnDraw) {
-			mRunOnDraw.add(runnable);
+	protected void runOnDrawStart(final Runnable runnable) {
+		synchronized (mRunOnDrawStart) {
+            mRunOnDrawStart.add(runnable);
 		}
 	}
 
-	protected void runOnDrawEnd(final Runnable runnable) {
-		synchronized (mRunOnDrawEnd) {
-			mRunOnDrawEnd.add(runnable);
-		}
-	}
+    protected void runOnDrawEnd(final Runnable runnable) {
+        synchronized (mRunOnDrawEnd) {
+            mRunOnDrawEnd.add(runnable);
+        }
+    }
 
-
-	public void setObserver(Observer observer) {
+   public void setObserver(Observer observer) {
 		mObserver = observer;
 	}
 
@@ -603,12 +556,10 @@ public class CameraRenderer implements
 		bitmap.compress(format, quality, bao);
 		return bao.toByteArray();
 	}
+
 	static int count = 100;
-
-	public static void saveBitMapDebug(Bitmap bitmap, Bitmap.CompressFormat compressFormat, int quality)throws IOException {
+    public static void saveBitMapDebug(Bitmap bitmap, Bitmap.CompressFormat compressFormat, int quality)throws IOException {
 		{
-			int i =1;
-
 			FileOutputStream fos = null;
 			try {
 				File f = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)

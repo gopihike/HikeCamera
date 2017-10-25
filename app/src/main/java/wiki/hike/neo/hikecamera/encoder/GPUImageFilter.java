@@ -150,6 +150,7 @@ public class GPUImageFilter {
         GLES20.glDisableVertexAttribArray(mGLAttribPosition);
         GLES20.glDisableVertexAttribArray(mGLAttribTextureCoordinate);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
     }
 
     protected void onDrawArraysPre() {

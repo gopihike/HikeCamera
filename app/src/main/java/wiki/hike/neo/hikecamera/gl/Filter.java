@@ -23,14 +23,13 @@ public class Filter {
         public void onPictureTaken(Bitmap bitmap) throws FileNotFoundException;
     }
 
-    private FloatBuffer mVertexBuffer = null;
+    /*private FloatBuffer mVertexBuffer = null;
     protected float[] mVerticesForSampler2D = {
             -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
             -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
             1.0f, 1.0f, 0.0f, 1.0f, 1.0f };
-    protected int mVertexBufferObjectId;
-
+    protected int mVertexBufferObjectId;*/
 
 
     public static final int GL_TEXTURE_EXTERNAL_OES = 0x8D65;
@@ -89,10 +88,10 @@ public class Filter {
     private String mFragmentShader;
 
 
-    private int[] mTextureConstant = {GLES20.GL_TEXTURE0,GLES20.GL_TEXTURE1};
-    private int[] mSamplers = null;
+    protected int[] mTextureConstant = {GLES20.GL_TEXTURE0,GLES20.GL_TEXTURE1};
+    protected int[] mSamplers = null;
 
-    private boolean mIsInitialized;
+    protected boolean mIsInitialized;
 
 
     public Filter() {
@@ -127,6 +126,7 @@ public class Filter {
         maTextureHandle = GLES20.glGetAttribLocation(mGLProgId, A_TEXCOORD);
         //muMVPMatrixHandle = GLES20.glGetUniformLocation(mGLProgId, U_MVPMATRIX);
 
+        //This call will go inside respective filter type. TO FIX
         switch (getRenderType())
         {
             case RENDER_TYPE_PREVIEW_BUFFER:
@@ -137,32 +137,20 @@ public class Filter {
                 mSamplers[1] = mChrominanceSampler;
                 break;
             case RENDER_TYPE_SURFACE_TEXTURE:
-                muSampler0Handle = GLES20.glGetUniformLocation(mGLProgId, U_SAMPLER0);
-                mSamplers = new int[1];
-                mSamplers[0] = muSampler0Handle;
-
             case RENDER_TYPE_SAMPLER2D:
                 muSampler0Handle = GLES20.glGetUniformLocation(mGLProgId, U_SAMPLER0);
                 mSamplers = new int[1];
                 mSamplers[0] = muSampler0Handle;
-
-                //Create texture buffer for filters.
-                mVertexBuffer = ByteBuffer.allocateDirect(mVerticesForSampler2D.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-                mVertexBuffer.put(mVerticesForSampler2D).position(0);
-
-                int[] vboIds = new int[1];
-                GLES20.glGenBuffers(1, vboIds, 0);
-                mVertexBufferObjectId = vboIds[0];
-
-                GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
-                GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * FLOAT_SIZE_BYTES, mVertexBuffer, GLES20.GL_STATIC_DRAW);
-
-                mVertexBuffer = null;
                 break;
         }
     }
 
     public void onInitialized() {
+
+    }
+
+    public void onDraw(final int[] textureArr ,int elementBufferObjectId)
+    {
 
     }
 
@@ -194,7 +182,7 @@ public class Filter {
         GLES20.glEnableVertexAttribArray(maPositionHandle);
         GLES20.glEnableVertexAttribArray(maTextureHandle);
 
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, getRenderType() == RENDER_TYPE_SAMPLER2D ? mVertexBufferObjectId : vertexBufferObjectId);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferObjectId);
         GLES20.glVertexAttribPointer(maPositionHandle, 3, GLES20.GL_FLOAT, false, 5 * FLOAT_SIZE_BYTES, 0);
         GLES20.glVertexAttribPointer(maTextureHandle, 2, GLES20.GL_FLOAT, true, 5 * FLOAT_SIZE_BYTES, 3 * FLOAT_SIZE_BYTES);
 
