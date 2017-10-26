@@ -22,6 +22,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -155,27 +156,14 @@ public class CameraRenderer implements
 				public void run() {
 					mFilterRecorder = null;
 					mFrameBuffer.releaseFrameBuffer();
-
 					synchronized (mRunOnDrawStartAlwaysIndex) {
-						int i=0;
-						for(Integer item : mRunOnDrawStartAlwaysIndex)
-						{
-							if(item == m_videoBufferId)
-							{
+						for (int i = 0; i < mRunOnDrawStartAlwaysIndex.size(); i++) {
+							Integer item = mRunOnDrawStartAlwaysIndex.get(i);
+							if (item.equals(m_videoBufferId)) {
 								mRunOnDrawStartAlwaysIndex.remove(item);
 								mRunOnDrawEndAlwaysIndex.remove(item);
-								break;
-							}
-							++i;
-						}
-
-						int k=0;
-						for(Runnable item : mRunOnDrawStartAlways)
-						{
-							if(i == k)
-							{
-								mRunOnDrawStartAlways.remove(item);
-								mRunOnDrawEndAlways.remove(item);
+								mRunOnDrawStartAlways.remove(i);
+								mRunOnDrawEndAlways.remove(i);
 								break;
 							}
 						}
@@ -226,13 +214,15 @@ public class CameraRenderer implements
 	//Called after startpreview has started.
 	public void initPreviewFrameRenderer(/*int previewWidth,int previewHeight*/)
 	{
-		//mPreviewWidth = previewWidth;
-		//mPreviewHeight = previewHeight;
-
 		runOnDrawStart(new Runnable() {
 			@Override
 			public void run() {
 				mPreviewFrameTexture.initWithPreview(mPreviewWidth,mPreviewHeight);
+				byte[] bytesBlack = new byte[(3*mPreviewWidth*mPreviewHeight)/2];
+				Arrays.fill(bytesBlack,0, mPreviewWidth*mPreviewHeight,(byte)0);
+				Arrays.fill(bytesBlack,mPreviewWidth*mPreviewHeight, 3*mPreviewWidth*mPreviewHeight/2,(byte)128);
+				processVideoFrame(bytesBlack);
+				bytesBlack = null;
 			}
 		});
 
@@ -240,16 +230,6 @@ public class CameraRenderer implements
 		mBufferY = ByteBuffer.allocateDirect(mPreviewWidth * mPreviewHeight);
 		//  UV channel. Used for color rendering
 		mBufferUV = ByteBuffer.allocateDirect(mPreviewWidth * mPreviewHeight / 2);
-
-		//mPreviewFrameTexture.init(mPreviewWidth,mPreviewHeight);
-		//Position of this call will be changed once camera initPreview size is placed at the right location.
-		//Once preview size is set
-		mManager.getCamera().setPreviewCallbackWithBuffer(this);
-
-			for (int i = 0; i < 3; i++) {
-			mManager.getCamera().addCallbackBuffer(new byte[mPreviewWidth *mPreviewHeight * 3 / 2]);
-		}
-
 	}
 
 	public void setSurfaceView(GLSurfaceView surfaceView) {
@@ -269,17 +249,34 @@ public class CameraRenderer implements
 	byte[] prevBytes;
 	@Override
 	public void onPreviewFrame(final byte[] bytes,final Camera camera) {
-		mSurfaceView.queueEvent(new Runnable() {
-			public void run()
-			{
-				if (prevBytes == null || prevBytes.length != bytes.length) {
-					prevBytes = new byte[bytes.length];
-				}
-				System.arraycopy(bytes, 0, prevBytes, 0, bytes.length);
-				processVideoFrame(prevBytes);
-				camera.addCallbackBuffer(bytes);
-			}
-		});
+		if(mFilter==null)
+			return;
+
+		mFilter.onPreviewFrame(bytes,camera);
+		switch (mFilter.getRenderType())
+		{
+			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
+				mSurfaceView.queueEvent(new Runnable() {
+					@Override
+					public void run() {
+						if (prevBytes == null || prevBytes.length != bytes.length) {
+							prevBytes = new byte[bytes.length];
+						}
+						System.arraycopy(bytes, 0, prevBytes, 0, bytes.length);
+						processVideoFrame(prevBytes);
+						camera.addCallbackBuffer(bytes);
+
+					}
+				});
+
+				break;
+			case Filter.RENDER_TYPE_SURFACE_TEXTURE:
+				break;
+			case Filter.RENDER_TYPE_FACE_FILTER:
+				mSurfaceView.requestRender();
+				break;
+
+		}
 	}
 
 	public int getSurfaceWidth(){
@@ -523,6 +520,9 @@ public class CameraRenderer implements
 					mFilter.onDraw(mCameraTexture.getTextureId(),mVertexBufferObjectId,mElementBufferObjectId);
 				}
 				break;
+			case Filter.RENDER_TYPE_FACE_FILTER:
+				mFilter.onDraw(mVertexBufferObjectId,mElementBufferObjectId);
+				break;
 		}
 
 		runAllAlways(mRunOnDrawEndAlways);
@@ -540,6 +540,7 @@ public class CameraRenderer implements
 		switch (mFilter.getRenderType())
 		{
 			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
+			case Filter.RENDER_TYPE_FACE_FILTER:
 				mSurfaceTexture.setOnFrameAvailableListener(null);
 				mManager.getCamera().setPreviewCallbackWithBuffer(this);
 				for (int i = 0; i < 3; i++) {

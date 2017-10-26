@@ -1,6 +1,7 @@
 package wiki.hike.neo.hikecamera.gl;
 
 import android.graphics.Bitmap;
+import android.hardware.Camera;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
@@ -36,6 +37,7 @@ public class Filter {
     public static final int RENDER_TYPE_SURFACE_TEXTURE = 0;
     public static final int RENDER_TYPE_PREVIEW_BUFFER = 1;
     public static final int RENDER_TYPE_SAMPLER2D = 2;
+    public static final int RENDER_TYPE_FACE_FILTER = 3;
 
     protected int mRenderType = RENDER_TYPE_SAMPLER2D;
 
@@ -61,7 +63,7 @@ public class Filter {
             "}";
 
 
-    private LinkedList<Runnable> mRunOnDraw = null;
+    public LinkedList<Runnable> mRunOnDraw = null;
     protected int mGLProgId;
 
     protected final int SHORT_SIZE_BYTES = 2;
@@ -109,11 +111,16 @@ public class Filter {
         return mRenderType;
     }
 
-    public final void init()
+    public void init()
     {
         onInit();
-        mIsInitialized = true;
+
         onInitialized();
+    }
+
+    protected boolean isInitialized()
+    {
+        return mIsInitialized;
     }
 
     public void onInit()
@@ -146,10 +153,15 @@ public class Filter {
     }
 
     public void onInitialized() {
-
+        mIsInitialized = true;
     }
 
     public void onDraw(final int[] textureArr ,int elementBufferObjectId)
+    {
+
+    }
+
+    public void onDraw( int vertexBufferObjectId, int elementBufferObjectId)
     {
 
     }
@@ -195,6 +207,12 @@ public class Filter {
 
         GLES20.glFinish();
         GLES20.glUseProgram(0);
+    }
+
+    public void onPreviewFrame(final byte[] bytes, final Camera camera)
+    {
+
+
     }
 
     protected void onDrawArraysPre() {

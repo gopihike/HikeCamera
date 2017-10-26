@@ -18,10 +18,10 @@ import java.util.List;
 
 public class CameraManager {
     private Camera mCamera;
-    int mCameraWidth = 0;
-    int mCameraHeight = 0;
+    static int mCameraWidth = 0;
+    static int mCameraHeight = 0;
 
-    int mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK; //By Default camera is facing front.
+    static int mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK; //By Default camera is facing front.
     SurfaceTexture mSurfaceTexture;
     private List<CameraManager.CameraDescriptor> mDescriptors = null;
 
@@ -154,12 +154,12 @@ public class CameraManager {
         mCameraHeight = height;
     }
 
-    int getPreviewWidth()
+    static int getPreviewWidth()
     {
         return mCameraWidth;
     }
 
-    int getPrevieHeight()
+    static int getPrevieHeight()
     {
         return mCameraHeight;
     }
@@ -169,7 +169,7 @@ public class CameraManager {
         mCameraFacing = cameraFace;
     }
 
-    int getCameraFacing()
+    static int getCameraFacing()
     {
         return mCameraFacing;
     }

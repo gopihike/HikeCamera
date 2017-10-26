@@ -16,6 +16,8 @@
 
 package wiki.hike.neo.hikecamera.encoder;
 
+import android.app.Application;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.hardware.Camera.Size;
@@ -24,6 +26,8 @@ import android.opengl.GLUtils;
 import android.util.Log;
 
 import java.nio.IntBuffer;
+
+import wiki.hike.neo.hikecamera.ApplicationCamera;
 
 public class OpenGlUtils {
     public static final int NO_TEXTURE = -1;
@@ -142,4 +146,12 @@ public class OpenGlUtils {
         float fRandNum = (float) Math.random();
         return min + (max - min) * fRandNum;
     }
+
+    public static Context getApplicationContext()
+    {
+      return ApplicationCamera.getInstance().getApplicationContext();
+    }
+
+
 }
+
