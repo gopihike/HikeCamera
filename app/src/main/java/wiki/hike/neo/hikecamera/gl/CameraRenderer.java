@@ -110,6 +110,9 @@ public class CameraRenderer implements
 	//Video . Remove this ugly call once video recording is done.
 	FrameBuffer mFrameBuffer = null;
 
+    private	RendererFilterObserver mFilterObserver = new RendererFilterObserver();
+
+
 	public CameraRenderer(Context context,int previewWidth,int previewHeight) {
 		//super(context);
 		mContext = context;
@@ -252,7 +255,6 @@ public class CameraRenderer implements
 		if(mFilter==null)
 			return;
 
-		mFilter.onPreviewFrame(bytes,camera);
 		switch (mFilter.getRenderType())
 		{
 			case Filter.RENDER_TYPE_PREVIEW_BUFFER:
@@ -273,9 +275,9 @@ public class CameraRenderer implements
 			case Filter.RENDER_TYPE_SURFACE_TEXTURE:
 				break;
 			case Filter.RENDER_TYPE_FACE_FILTER:
-				mSurfaceView.requestRender();
+				mFilter.onPreviewFrame(bytes,camera,CameraManager.getCameraOrientation());
+				camera.addCallbackBuffer(bytes);
 				break;
-
 		}
 	}
 
@@ -521,7 +523,7 @@ public class CameraRenderer implements
 				}
 				break;
 			case Filter.RENDER_TYPE_FACE_FILTER:
-				mFilter.onDraw(mVertexBufferObjectId,mElementBufferObjectId);
+					mFilter.onDraw(mVertexBufferObjectId, mElementBufferObjectId);
 				break;
 		}
 
@@ -565,7 +567,9 @@ public class CameraRenderer implements
 					oldFilter.destroy();
 				}
 				setCallBackBasedOnFilter();
+				mFilter.setObserver(mFilterObserver);
 				mFilter.init();
+
 			}
 		});
 	}
@@ -679,5 +683,12 @@ public class CameraRenderer implements
             }
         });
     }
+
+	private class RendererFilterObserver implements Filter.FilterObserver{
+		public void onProcessingDone()
+		{
+			mSurfaceView.requestRender();
+		}
+	}
 
 }

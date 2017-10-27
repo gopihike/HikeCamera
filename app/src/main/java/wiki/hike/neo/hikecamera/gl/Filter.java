@@ -1,6 +1,7 @@
 package wiki.hike.neo.hikecamera.gl;
 
 import android.graphics.Bitmap;
+import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -95,6 +96,7 @@ public class Filter {
 
     protected boolean mIsInitialized;
 
+    protected FilterObserver mObserver = null;
 
     public Filter() {
         this(NO_FILTER_VERTEX_SHADER, NO_FILTER_FRAGMENT_SHADER);
@@ -145,6 +147,7 @@ public class Filter {
                 break;
             case RENDER_TYPE_SURFACE_TEXTURE:
             case RENDER_TYPE_SAMPLER2D:
+            case RENDER_TYPE_FACE_FILTER:
                 muSampler0Handle = GLES20.glGetUniformLocation(mGLProgId, U_SAMPLER0);
                 mSamplers = new int[1];
                 mSamplers[0] = muSampler0Handle;
@@ -209,10 +212,15 @@ public class Filter {
         GLES20.glUseProgram(0);
     }
 
-    public void onPreviewFrame(final byte[] bytes, final Camera camera)
+    public void onPreviewFrame(final byte[] bytes, final Camera camera,int orientation)
     {
 
 
+    }
+
+    public void setObserver(FilterObserver observer)
+    {
+        mObserver = observer;
     }
 
     protected void onDrawArraysPre() {
@@ -293,6 +301,9 @@ public class Filter {
     public void onDestroy() {
     }
 
+    public interface FilterObserver {
+        public void onProcessingDone();
+    }
 
 
 }

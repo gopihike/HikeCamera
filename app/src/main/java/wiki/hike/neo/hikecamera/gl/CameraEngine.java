@@ -98,7 +98,7 @@ public class CameraEngine {
         mSurfaceView.setPreserveEGLContextOnPause(true);
         mSurfaceView.setEGLContextClientVersion(2);
 
-        mFilter = new FilterPreviewBuffer();
+        mFilter = new FilterFace();
         mCameraRenderer.setFilter(mFilter);
 
         //Call back generated.

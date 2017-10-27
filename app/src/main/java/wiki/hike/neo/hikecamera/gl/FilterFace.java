@@ -2,6 +2,7 @@ package wiki.hike.neo.hikecamera.gl;
 
 import android.app.Activity;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.opengl.GLES20;
@@ -11,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
+import ai.deepar.ar.AREventListener;
 import ai.deepar.ar.DeepAR;
 import wiki.hike.neo.hikecamera.ApplicationCamera;
 import wiki.hike.neo.hikecamera.encoder.OpenGlUtils;
@@ -20,7 +22,7 @@ import wiki.hike.neo.hikecamera.utils.OESTexture;
  * Created by Neo on 26/10/17.
  */
 
-public class FilterFace extends Filter{
+public class FilterFace extends Filter implements AREventListener {
 
     public final static String SLOT_MASKS = "masks";
     public final static String SLOT_EFFECTS = "effects";
@@ -35,6 +37,24 @@ public class FilterFace extends Filter{
     private DeepAR mDeepAR = null;
     private ByteBuffer[] mBuffersDeepAr;
     int mCurrentBuffer = 0;
+    private boolean updateTexImage = false;
+
+    private FloatBuffer mVertexBuffer = null;
+
+    /*protected float[] mVerticesForSampler2D = {
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, -1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+            1.0f, 1.0f, 0.0f, 1.0f, 1.0f };*/
+
+    protected float[] mVerticesForSampler2D = {
+            -1.0f, -1.0f, 0.0f, 0.125f, 1.0f,
+            1.0f, -1.0f, 0.0f, 0.875f, 1.0f,
+            -1.0f, 1.0f, 0.0f, 0.125f, 0.0f,
+            1.0f, 1.0f, 0.0f, 0.875f, 0.0f };
+
+    protected int mVertexBufferObjectId;
+
 
     public static final String NO_FILTER_VERTEX_SHADER= "" +
             //"uniform mat4 u_MVPMatrix;\n" +
@@ -76,9 +96,23 @@ public class FilterFace extends Filter{
     @Override
     public void onInit() {
         super.onInit();
+
+        //Create texture buffer for filters.
+        mVertexBuffer = ByteBuffer.allocateDirect(mVerticesForSampler2D.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        mVertexBuffer.put(mVerticesForSampler2D).position(0);
+
+        int[] vboIds = new int[1];
+        GLES20.glGenBuffers(1, vboIds, 0);
+        mVertexBufferObjectId = vboIds[0];
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, mVertexBuffer.capacity() * FLOAT_SIZE_BYTES, mVertexBuffer, GLES20.GL_STATIC_DRAW);
+
+        mVertexBuffer = null;
+
         Context cont = OpenGlUtils.getApplicationContext();
         mDeepAR = new DeepAR();
-        mDeepAR.initialize(cont,null);
+        mDeepAR.initialize(cont,this);
 
         this.mBuffersDeepAr = new ByteBuffer[2];
         for(int i = 0; i < 2; ++i) {
@@ -93,9 +127,17 @@ public class FilterFace extends Filter{
                 public void run() {
                     mCameraTextureFaceFilter.init();
                     mSurfaceTexture = new SurfaceTexture(mCameraTextureFaceFilter.getTextureId()[0]);
-                    mDeepAR.setRenderSurface(new Surface(mSurfaceTexture),CameraManager.getPreviewWidth(),CameraManager.getPrevieHeight());
+                    mDeepAR.setRenderSurface(new Surface(mSurfaceTexture),512,512);
+                    mDeepAR.setFrameRenderedCallback(new DeepAR.FrameRenderedCallback() {
+                        @Override
+                        public void frameRendered() {
+                            updateTexImage = true;
 
-                    mDeepAR.switchEffect(FilterFace.SLOT_MASKS,"file:///android_asset/aviators");
+                            //onProcessing done.
+                            mObserver.onProcessingDone();
+                        }
+                    });
+
                 }
             });
         }
@@ -111,20 +153,26 @@ public class FilterFace extends Filter{
         return mCameraTextureFaceFilter;
     }
 
-    public void onPreviewFrame(final byte[] bytes, final Camera camera)
+    public void onPreviewFrame(final byte[] bytes, final Camera camera,int orientation)
     {
         if(isInitialized() == false)
             return;
-
-        super.onPreviewFrame(bytes,camera);
+        super.onPreviewFrame(bytes,camera,orientation);
         mBuffersDeepAr[mCurrentBuffer].put(bytes);
         mBuffersDeepAr[mCurrentBuffer].position(0);
-        mDeepAR.receiveFrame(mBuffersDeepAr[mCurrentBuffer],CameraManager.getCameraFacing() ==  Camera.CameraInfo.CAMERA_FACING_FRONT ? true : false);
+        mDeepAR.receiveFrame(mBuffersDeepAr[mCurrentBuffer],orientation); //Use parameters instead of singleton and static.
         mCurrentBuffer = (mCurrentBuffer +1) %2;
     }
 
     public void onDraw( int vertexBufferObjectId, int elementBufferObjectId)
     {
+        if (updateTexImage) {
+            updateTexImage = false;
+            synchronized (this) {
+                mSurfaceTexture.updateTexImage();
+            }
+        }
+
         super.onDraw(vertexBufferObjectId,elementBufferObjectId);
         GLES20.glUseProgram(mGLProgId);
         runPendingOnDrawTasks();
@@ -146,7 +194,6 @@ public class FilterFace extends Filter{
                     textureType = GLES20.GL_TEXTURE_2D;
                     break;
             }
-            mSurfaceTexture.updateTexImage();
             GLES20.glBindTexture(textureType, mCameraTextureFaceFilter.getTextureId()[i]);
             GLES20.glUniform1i(mSamplers[i], i);
         }
@@ -154,7 +201,7 @@ public class FilterFace extends Filter{
         GLES20.glEnableVertexAttribArray(maPositionHandle);
         GLES20.glEnableVertexAttribArray(maTextureHandle);
 
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferObjectId);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, mVertexBufferObjectId);
         GLES20.glVertexAttribPointer(maPositionHandle, 3, GLES20.GL_FLOAT, false, 5 * FLOAT_SIZE_BYTES, 0);
         GLES20.glVertexAttribPointer(maTextureHandle, 2, GLES20.GL_FLOAT, true, 5 * FLOAT_SIZE_BYTES, 3 * FLOAT_SIZE_BYTES);
 
@@ -167,6 +214,7 @@ public class FilterFace extends Filter{
 
         GLES20.glFinish();
         GLES20.glUseProgram(0);
+
     }
 
     public void setFaceFilterType(final String slot,final String path)
@@ -179,6 +227,43 @@ public class FilterFace extends Filter{
                 }
             });
         }
+    }
+
+    @Override
+    public void screenshotTaken(Bitmap bitmap) {
+
+    }
+
+    @Override
+    public void videoRecordingStarted() {
+
+    }
+
+    @Override
+    public void videoRecordingFinished() {
+
+    }
+
+    @Override
+    public void videoRecordingFailed() {
+
+    }
+
+    @Override
+    public void videoRecordingPrepared() {
+
+    }
+
+    @Override
+    public void initialized() {
+
+        mDeepAR.switchEffect(FilterFace.SLOT_MASKS,"file:///android_asset/aviators");
+
+    }
+
+    @Override
+    public void faceVisibilityChanged(boolean b) {
+
     }
 
 }

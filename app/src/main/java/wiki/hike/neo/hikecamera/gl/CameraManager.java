@@ -1,4 +1,5 @@
 package wiki.hike.neo.hikecamera.gl;
+import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
@@ -20,6 +21,8 @@ public class CameraManager {
     private Camera mCamera;
     static int mCameraWidth = 0;
     static int mCameraHeight = 0;
+
+    static int mOrientation = 0;
 
     static int mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK; //By Default camera is facing front.
     SurfaceTexture mSurfaceTexture;
@@ -96,19 +99,20 @@ public class CameraManager {
                 mCamera = null;
             }
             mCamera = Camera.open(mCameraFacing);
+            Camera.CameraInfo info = new Camera.CameraInfo();
+            Camera.getCameraInfo(mCameraFacing, info);
+            mOrientation = info.orientation;
             try{
                 mCamera.setPreviewTexture(mSurfaceTexture);
             }catch(IOException ioe){
                 ioe.printStackTrace();
             }
             Camera.Parameters param = mCamera.getParameters();
-            param.setPreviewSize(mCameraWidth,mCameraHeight);
-            param.setPictureSize(mCameraWidth,mCameraHeight);
+            param.setPreviewSize(640,480);
+            //param.setPictureSize(640,480);
             mCamera.setParameters(param);
             mCamera.startPreview();
-
         }catch(final Exception ex){
-
         }
     }
 
@@ -164,6 +168,11 @@ public class CameraManager {
         return mCameraHeight;
     }
 
+    static int getCameraOrientation()
+    {
+        return mOrientation;
+    }
+
     void setCameraFacing(int cameraFace)
     {
         mCameraFacing = cameraFace;
@@ -180,6 +189,8 @@ public class CameraManager {
             @Override
             public void run() {*/
 
+
+
         try {
             if (mDescriptors == null) {
 
@@ -191,7 +202,6 @@ public class CameraManager {
 
                 for (int cameraId = 0; cameraId < numberOfCameras; cameraId++) {
                     Camera.getCameraInfo(cameraId, info);
-
                     CameraManager.CameraDescriptor descriptor = new CameraManager.CameraDescriptor(cameraId, info);
 
                     Camera camera = Camera.open(descriptor.getCameraId());
