@@ -34,66 +34,59 @@ public class CameraManager {
         initializeBestPreviewSize();
     }
 
-    public void onPause()
-    {
+    public void onPause() {
         //mSurfaceTexture = null;
-        if(mCamera != null){
+        if (mCamera != null) {
             mCamera.stopPreview();
             mCamera.release();
             mCamera = null;
         }
     }
 
-    public void onResume()
-    {
+    public void onResume() {
         openCamera(getCameraFacing());
     }
 
 
     //Code to be changed for getting best preview size.
-    void initPreviewSize(int width,int height)
-    {
+    void initPreviewSize(int width, int height) {
         //set camera para-----------------------------------
         //mCameraWidth =0;
         //mCameraHeight =0;
         Camera.Parameters param = mCamera.getParameters();
         List<Camera.Size> psize = param.getSupportedPreviewSizes();
-        if(psize.size() > 0 ){
+        if (psize.size() > 0) {
             int i;
-            for (i = 0; i < psize.size(); i++){
-                if(psize.get(i).width < width || psize.get(i).height < height)
+            for (i = 0; i < psize.size(); i++) {
+                if (psize.get(i).width < width || psize.get(i).height < height)
                     break;
             }
-            if(i>0)
+            if (i > 0)
                 i--;
             param.setPreviewSize(psize.get(i).width, psize.get(i).height);
 
             mCameraWidth = psize.get(i).width;
-            mCameraHeight= psize.get(i).height;
+            mCameraHeight = psize.get(i).height;
         }
         mCamera.setParameters(param);
     }
 
-    public int getWidth()
-    {
+    public int getWidth() {
         return mCameraWidth;
     }
 
-    public int getHeight()
-    {
+    public int getHeight() {
         return mCameraHeight;
     }
 
-    boolean isCameraFacingFront()
-    {
-       return mCameraFacing ==  Camera.CameraInfo.CAMERA_FACING_FRONT ? true : false;
+    boolean isCameraFacingFront() {
+        return mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT ? true : false;
     }
 
-    public void openCamera(int cameraFace)
-    {
+    public void openCamera(int cameraFace) {
         mCameraFacing = cameraFace;
-        try{
-            if(mCamera != null){
+        try {
+            if (mCamera != null) {
                 mCamera.stopPreview();
                 mCamera.release();
                 mCamera = null;
@@ -102,18 +95,26 @@ public class CameraManager {
             Camera.CameraInfo info = new Camera.CameraInfo();
             Camera.getCameraInfo(mCameraFacing, info);
             mOrientation = info.orientation;
-            try{
+            try {
                 mCamera.setPreviewTexture(mSurfaceTexture);
-            }catch(IOException ioe){
+            } catch (IOException ioe) {
                 ioe.printStackTrace();
             }
             Camera.Parameters param = mCamera.getParameters();
-            param.setPreviewSize(640,480);
-            //param.setPictureSize(640,480);
+            param.setPreviewSize(/*getPreviewWidth(), getPrevieHeight()*/640,480);
             mCamera.setParameters(param);
             mCamera.startPreview();
-        }catch(final Exception ex){
+        } catch (final Exception ex) {
         }
+    }
+
+    public void setCameraPreview(int width,int height)
+    {
+        Camera.Parameters param = mCamera.getParameters();
+        param.setPreviewSize(width,height);
+        mCamera.stopPreview();
+        mCamera.setParameters(param);
+        mCamera.startPreview();
     }
 
     public void flipit()
@@ -150,22 +151,22 @@ public class CameraManager {
 
     void setPreviewWidth(int width)
     {
-        mCameraWidth = width;
+        mCameraWidth = 640/*width*/;
     }
 
     void setPreviewHeight(int height)
     {
-        mCameraHeight = height;
+        mCameraHeight = 480/*height*/;
     }
 
     static int getPreviewWidth()
     {
-        return mCameraWidth;
+        return /*mCameraWidth*/640;
     }
 
     static int getPrevieHeight()
     {
-        return mCameraHeight;
+        return /*mCameraHeight*/480;
     }
 
     static int getCameraOrientation()

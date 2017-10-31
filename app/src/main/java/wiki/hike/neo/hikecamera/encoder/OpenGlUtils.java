@@ -25,6 +25,7 @@ import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.util.Log;
 
+
 import java.nio.IntBuffer;
 
 import wiki.hike.neo.hikecamera.ApplicationCamera;
@@ -149,9 +150,8 @@ public class OpenGlUtils {
 
     public static Context getApplicationContext()
     {
-      return ApplicationCamera.getInstance().getApplicationContext();
+        //return HikeMessengerApp.getInstance().getApplicationContext();
+      return  ApplicationCamera.getInstance().getApplicationContext();
     }
-
-
 }
 

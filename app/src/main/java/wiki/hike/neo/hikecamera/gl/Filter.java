@@ -25,15 +25,6 @@ public class Filter {
         public void onPictureTaken(Bitmap bitmap) throws FileNotFoundException;
     }
 
-    /*private FloatBuffer mVertexBuffer = null;
-    protected float[] mVerticesForSampler2D = {
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-            1.0f, 1.0f, 0.0f, 1.0f, 1.0f };
-    protected int mVertexBufferObjectId;*/
-
-
     public static final int GL_TEXTURE_EXTERNAL_OES = 0x8D65;
     public static final int RENDER_TYPE_SURFACE_TEXTURE = 0;
     public static final int RENDER_TYPE_PREVIEW_BUFFER = 1;
@@ -134,7 +125,6 @@ public class Filter {
         maPositionHandle = GLES20.glGetAttribLocation(mGLProgId, A_POSITION);
         maTextureHandle = GLES20.glGetAttribLocation(mGLProgId, A_TEXCOORD);
         //muMVPMatrixHandle = GLES20.glGetUniformLocation(mGLProgId, U_MVPMATRIX);
-
         //This call will go inside respective filter type. TO FIX
         switch (getRenderType())
         {

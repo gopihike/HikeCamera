@@ -126,20 +126,37 @@ public class CameraRenderer implements
 		mRunOnDrawStartAlwaysIndex = new ArrayList<>();
 		mRunOnDrawEndAlwaysIndex = new ArrayList<>();
 
-		mPreviewWidth = previewWidth;
-		mPreviewHeight = previewHeight;
+		createFrontAndBackBuffer(previewWidth,previewHeight);
+
+		//mPreviewWidth = previewWidth;
+		//mPreviewHeight = previewHeight;
 
 		//Create all buffers before hand.
-		mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-		float[] modifiedBuffer = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_FRONT);//modifyTextureBuffers(cameraFacing);//
+		/*mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+		float[] modifiedBuffer = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_FRONT);
 		mVertexBufferFront.put(modifiedBuffer).position(0);
 
 		mVertexBufferBack = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-		float[] modifiedBufferBack = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);;
-		mVertexBufferBack.put(modifiedBufferBack).position(0);
+		float[] modifiedBufferBack = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);//modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);
+		mVertexBufferBack.put(modifiedBufferBack).position(0);*/
 
 		mIndexBuffer = ByteBuffer.allocateDirect(mIndices.length * SHORT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asShortBuffer();
 		mIndexBuffer.put(mIndices).position(0);
+	}
+
+	public void createFrontAndBackBuffer(int width,int height)
+	{
+		mPreviewWidth = width;
+		mPreviewHeight = height;
+
+		//Create all buffers before hand.
+		mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+		float[] modifiedBuffer = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_FRONT);
+		mVertexBufferFront.put(modifiedBuffer).position(0);
+
+		mVertexBufferBack = ByteBuffer.allocateDirect(mVerticesBackCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+		float[] modifiedBufferBack = modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);//modifyTextureBuffers(Camera.CameraInfo.CAMERA_FACING_BACK);
+		mVertexBufferBack.put(modifiedBufferBack).position(0);
 	}
 
 	public void onResume()

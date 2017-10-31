@@ -171,6 +171,12 @@ public class CameraEngine {
                 Log.e("ENGINE","Command" + command);
                 break;
             case COMMAND_RECORD:
+                //mCameraManager.setCameraPreview(640,480);
+                //Recalculate texture buffer
+                //mCameraRenderer.createFrontAndBackBuffer(640,480 );
+                //mCameraRenderer.flip(CameraManager.getCameraFacing());
+                //mCameraRenderer.setFilter(new FilterFace());
+
                 int recordingState =  getmRecordingState() == CameraEngine.RECORDING_STATE_ON ? CameraEngine.RECORDING_STATE_OFF : CameraEngine.RECORDING_STATE_ON;
                 setRecordingState(recordingState);
                 break;
@@ -193,11 +199,10 @@ public class CameraEngine {
                     File dir = new File(file_path);
                     if(!dir.exists())
                         dir.mkdirs();
-
                     mVideoFile = new File(dir, fileName);
                     mMuxer = new MediaMuxerWrapper(".mp4", mVideoFile.getAbsolutePath());    // for audio change to m4a
                     new MediaVideoEncoder(mMuxer, mMediaEncoderListener, mCameraRenderer.getSurfaceWidth(), mCameraRenderer.getSurfaceHeight());
-                    new MediaAudioEncoder(mMuxer, mMediaEncoderListener, null);
+                    //new MediaAudioEncoder(mMuxer, mMediaEncoderListener, null);
                     mMuxer.prepare();
                     mMuxer.startRecording();
                 } catch (final IOException e)
