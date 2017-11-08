@@ -101,7 +101,7 @@ public class CameraManager {
                 ioe.printStackTrace();
             }
             Camera.Parameters param = mCamera.getParameters();
-            param.setPreviewSize(/*getPreviewWidth(), getPrevieHeight()*/640,480);
+            param.setPreviewSize(getPreviewWidth(), getPrevieHeight()/*640,480*/);
             mCamera.setParameters(param);
             mCamera.startPreview();
         } catch (final Exception ex) {
@@ -151,22 +151,22 @@ public class CameraManager {
 
     void setPreviewWidth(int width)
     {
-        mCameraWidth = 640/*width*/;
+        mCameraWidth = /*640*/width;
     }
 
     void setPreviewHeight(int height)
     {
-        mCameraHeight = 480/*height*/;
+        mCameraHeight = /*480*/height;
     }
 
     static int getPreviewWidth()
     {
-        return /*mCameraWidth*/640;
+        return mCameraWidth/*640*/;
     }
 
     static int getPrevieHeight()
     {
-        return /*mCameraHeight*/480;
+        return mCameraHeight/*480*/;
     }
 
     static int getCameraOrientation()

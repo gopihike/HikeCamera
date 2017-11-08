@@ -521,6 +521,12 @@ public class CameraRenderer implements
 		GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
+		int error = GLES20.glGetError();
+		if (error != GLES20.GL_NO_ERROR)
+		{
+			Log.e("GLError","opengl error");
+		}
+
 		runAll(mRunOnDrawStart); //Using this queue to process anything that comes from thread withoutGL context.
 		runAllAlways(mRunOnDrawStartAlways);
 
