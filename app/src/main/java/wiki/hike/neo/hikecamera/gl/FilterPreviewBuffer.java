@@ -31,6 +31,18 @@ public class FilterPreviewBuffer extends Filter {
             "	gl_FragColor = rgba;" +
             "}";
 
+    /*public static final String YUV_FS = "" +
+            "precision highp float;\n" +
+            "varying highp vec2 v_texcoord;\n" +
+            "uniform sampler2D luminanceTexture;" +
+            "uniform sampler2D chrominanceTexture;" +
+            "void main() {\n" +
+            "   lowp float y = texture2D(luminanceTexture, v_texcoord).r;" +
+            "   lowp vec4 uv = texture2D(chrominanceTexture, v_texcoord);" +
+            "   mediump vec4 rgba = y * vec4(1.0, 1.0, 1.0, 1.0)" +
+            "	gl_FragColor = rgba;"+
+            "}";*/
+
     public FilterPreviewBuffer()
     {
         super(YUV_VS,YUV_FS);

@@ -112,6 +112,7 @@ public class CameraRenderer implements
 
     private	RendererFilterObserver mFilterObserver = new RendererFilterObserver();
 
+	float[] mTmpMatrix = new float[16];
 
 	public CameraRenderer(Context context,int previewWidth,int previewHeight) {
 		//super(context);
@@ -126,10 +127,9 @@ public class CameraRenderer implements
 		mRunOnDrawStartAlwaysIndex = new ArrayList<>();
 		mRunOnDrawEndAlwaysIndex = new ArrayList<>();
 
-		createFrontAndBackBuffer(previewWidth,previewHeight);
 
-		//mPreviewWidth = previewWidth;
-		//mPreviewHeight = previewHeight;
+		mPreviewWidth = previewWidth;
+		mPreviewHeight = previewHeight;
 
 		//Create all buffers before hand.
 		/*mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -146,8 +146,8 @@ public class CameraRenderer implements
 
 	public void createFrontAndBackBuffer(int width,int height)
 	{
-		mPreviewWidth = width;
-		mPreviewHeight = height;
+		//mPreviewWidth = width;
+		//smPreviewHeight = height;
 
 		//Create all buffers before hand.
 		mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -232,8 +232,12 @@ public class CameraRenderer implements
    }
 
 	//Called after startpreview has started.
-	public void initPreviewFrameRenderer(/*int previewWidth,int previewHeight*/)
+	public void initPreviewFrameRenderer(int previewWidth,int previewHeight)
 	{
+		//setFilter(new FilterFaceTest(mSurfaceWidth,mSurfaceHeight,mPreviewWidth,mPreviewHeight));
+
+		createFrontAndBackBuffer(previewWidth,previewHeight);
+
 		runOnDrawStart(new Runnable() {
 			@Override
 			public void run() {
@@ -349,9 +353,17 @@ public class CameraRenderer implements
 	}
 
 	@Override
-	public synchronized void onSurfaceCreated(GL10 gl, EGLConfig config) {
+	public  void onSurfaceCreated(GL10 gl, EGLConfig config) {
 		//Code to create vertext and element buffer : Bascially  quad that is used to render objects.
+		Log.e("ENGINE","onSurfaceCreated");
 
+		//This optimization is added for making camera open fast.Surface width and Surface height is equal to device width and device height
+		//It gives us an edge of one call.This call should be shifted to onSurfaceChanged view != device width and device height.
+		mSurfaceHeight = mContext.getResources().getDisplayMetrics().heightPixels;
+		mSurfaceWidth =	mContext.getResources().getDisplayMetrics().widthPixels;
+		//480 * 640
+		//mSurfaceHeight = (int) (0.75*  mSurfaceHeight);
+		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
 		//Decision to be taken whether we should create front and back buffer separately or should create only one.
 		//Flip time to be measured with both
 		flip(mManager.getCameraFacing());
@@ -443,12 +455,9 @@ public class CameraRenderer implements
 	}
 
 	float[] modifyPositionBuffers(int cameraFacing){
-
 		float surfaceAspectRatio = (1.0f*mSurfaceHeight)/mSurfaceWidth;
 		float previewAspectRatio = (1.0f*mPreviewWidth)/mPreviewHeight;
-
 		float[] modifiedBuffer = mVerticesBackCamera.clone();
-
         if(cameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
             modifiedBuffer = mVerticesFrontCamera.clone();
         }
@@ -472,7 +481,6 @@ public class CameraRenderer implements
                 modifiedBuffer[16] = modifiedBuffer[16] - offset;
             }
 		}
-
 		return modifiedBuffer;
 	}
 
@@ -506,25 +514,42 @@ public class CameraRenderer implements
 
 
 	@Override
-	public synchronized void onSurfaceChanged(GL10 gl, int width, int height) {
+	public  void onSurfaceChanged(GL10 gl, int width, int height) {
 
-	    Log.v("Sourav", "Surface width : " + width + ", Surface height : " + height);
-		mSurfaceWidth = width;
+
+		Log.e("ENGINE", "onSurfaceChanged : " + width + ", Surface height : " + height);
+
+		//GLES20.glViewport(0, 0, width, height);
+		//Just set surface width and surface height.
+	//	mSurfaceWidth = width;
+	//	mSurfaceHeight = height;
+	    /*mSurfaceWidth = width;
 		mSurfaceHeight = height;
+
+	 	int wth =	mContext.getResources().getDisplayMetrics().heightPixels;
+		int hgt =	mContext.getResources().getDisplayMetrics().widthPixels;
+
+
+
 		//Video
 		//mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO,mSurfaceWidth,mSurfaceHeight);
-		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
+		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);*/
+
 	}
+
+	public static float m_startVal = 0.0f;
 
 	@Override
 	public synchronized void onDrawFrame(GL10 gl) {
+
+
 		GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
 		int error = GLES20.glGetError();
 		if (error != GLES20.GL_NO_ERROR)
 		{
-			Log.e("GLError","opengl error");
+			Log.e("GLError","opengl error"+ error);
 		}
 
 		runAll(mRunOnDrawStart); //Using this queue to process anything that comes from thread withoutGL context.
@@ -540,7 +565,7 @@ public class CameraRenderer implements
 			case Filter.RENDER_TYPE_SURFACE_TEXTURE:
 				if(updateTexture){
 					mSurfaceTexture.updateTexImage();
-					//mSurfaceTexture.getTransformMatrix(mFilter.getTransformMatrix());
+					mSurfaceTexture.getTransformMatrix(mTmpMatrix);
 					updateTexture = false;
 					mFilter.onDraw(mCameraTexture.getTextureId(),mVertexBufferObjectId,mElementBufferObjectId);
 				}
@@ -559,6 +584,12 @@ public class CameraRenderer implements
 		mSurfaceTexture.release();
 	}
 
+	public void initPreviewBufferCallBack() {
+		mManager.getCamera().setPreviewCallbackWithBuffer(this);
+		for (int i = 0; i < 3; i++) {
+			mManager.getCamera().addCallbackBuffer(new byte[mPreviewWidth * mPreviewHeight * 3 / 2]);
+		}
+	}
 
 	public void setCallBackBasedOnFilter()
 	{
@@ -591,8 +622,8 @@ public class CameraRenderer implements
 				}
 				setCallBackBasedOnFilter();
 				mFilter.setObserver(mFilterObserver);
+				mFilter.init(mSurfaceWidth,mSurfaceHeight,mPreviewWidth,mPreviewHeight);
 				mFilter.init();
-
 			}
 		});
 	}

@@ -17,6 +17,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 	CameraEngine mCameraEngine;
 	ImageView btn_cross,btn_flip,btn_capture;
 	TextView txt_fps,txt_rendermode,txt_opentime,txt_fliptime;
+	GLSurfaceView mSurfaceView;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +40,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		btn_flip.setOnClickListener(this);
 		btn_capture.setOnClickListener(this);
 
-		GLSurfaceView mSurfaceView = (GLSurfaceView)findViewById(R.id.renderer_view);
+		 mSurfaceView = (GLSurfaceView)findViewById(R.id.renderer_view);
 		mCameraEngine = new CameraEngine(mSurfaceView,this.getApplicationContext());
 	}
 
@@ -76,5 +77,6 @@ public class MainActivity extends Activity implements View.OnClickListener {
 		mCameraEngine.onResume();
 
 	}
+
 
 }

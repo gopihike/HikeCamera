@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import wiki.hike.neo.hikecamera.utils.CameraEngineBackgroundHandler;
+
 
 /**
  * Created by Neo on 09/10/17.
@@ -23,6 +25,10 @@ public class CameraManager {
     static int mCameraHeight = 0;
 
     static int mOrientation = 0;
+    static int mPreviewFormat = 1;
+
+    public static int CAMERA_ACTION_TYPE_OPEN = 0;
+    public static int CAMERA_ACTION_TYPE_FLIP = 1;
 
     static int mCameraFacing = Camera.CameraInfo.CAMERA_FACING_BACK; //By Default camera is facing front.
     SurfaceTexture mSurfaceTexture;
@@ -38,15 +44,71 @@ public class CameraManager {
         //mSurfaceTexture = null;
         if (mCamera != null) {
             mCamera.stopPreview();
+            mCamera.setPreviewCallbackWithBuffer(null);
+            mCamera.release();
+        }
+        mCamera = null;
+    }
+
+    public void onResume() {
+        openCamera(getCameraFacing(),CAMERA_ACTION_TYPE_OPEN);
+    }
+
+    public void onRecreateCameraOnResume()
+    {
+
+
+    }
+
+    public void onDestroy()
+    {
+        if (mCamera != null) {
+            mCamera.stopPreview();
             mCamera.release();
             mCamera = null;
         }
     }
 
-    public void onResume() {
-        openCamera(getCameraFacing());
+    public void startCamera(final int cameraFacing)
+    {
+        openCamera(cameraFacing,CAMERA_ACTION_TYPE_OPEN);
+        /*CameraEngineBackgroundHandler.getInstance().post(new Runnable() {
+            @Override
+            public void run() {
+                openCamera(cameraFacing,CAMERA_ACTION_TYPE_OPEN);//TODO : Have separate callback for camera open.
+            }
+        });*/
     }
 
+    public void openCamera(int cameraFace,int actionType) {
+        mCameraFacing = cameraFace;
+        try {
+            if (mCamera != null) {
+                mCamera.stopPreview();
+                mCamera.release();
+                mCamera = null;
+            }
+            mCamera = Camera.open(mCameraFacing);
+            Camera.CameraInfo info = new Camera.CameraInfo();
+            Camera.getCameraInfo(mCameraFacing, info);
+            mOrientation = info.orientation;
+            try {
+                mCamera.setPreviewTexture(mSurfaceTexture);
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
+            Camera.Parameters param = mCamera.getParameters();
+            CameraManager.mPreviewFormat =  param.getPreviewFormat();
+            param.setPreviewSize(getPreviewWidth(), getPrevieHeight());
+            mCamera.setParameters(param);
+            mCamera.startPreview();
+        } catch (final Exception ex) {
+        }
+    }
+
+    /*public void onResume() {
+        openCamera(getCameraFacing());
+    }*/
 
     //Code to be changed for getting best preview size.
     void initPreviewSize(int width, int height) {
@@ -101,6 +163,7 @@ public class CameraManager {
                 ioe.printStackTrace();
             }
             Camera.Parameters param = mCamera.getParameters();
+            CameraManager.mPreviewFormat =  param.getPreviewFormat();
             param.setPreviewSize(getPreviewWidth(), getPrevieHeight()/*640,480*/);
             mCamera.setParameters(param);
             mCamera.startPreview();
@@ -146,7 +209,8 @@ public class CameraManager {
     {
         //We need this handle because.
         mSurfaceTexture = texture;
-        openCamera(getCameraFacing());
+        startCamera(getCameraFacing());
+        //openCamera(getCameraFacing());
     }
 
     void setPreviewWidth(int width)
@@ -184,19 +248,19 @@ public class CameraManager {
         return mCameraFacing;
     }
 
+    static int getPreviewFormat()
+    {
+        return mPreviewFormat;
+    }
+
     //Finds out best preview size and sends a call back.
     public void initializeBestPreviewSize() {
         /*captureRunnable = new Runnable() {
             @Override
             public void run() {*/
-
-
-
         try {
             if (mDescriptors == null) {
-
                 SizeP returnSize;
-
                 int numberOfCameras = Camera.getNumberOfCameras();
                 List<CameraManager.CameraDescriptor> result = new ArrayList<CameraManager.CameraDescriptor>();
                 Camera.CameraInfo info = new Camera.CameraInfo();
@@ -265,21 +329,22 @@ public class CameraManager {
                         }
                     }
                 }
+                List<SizeP> idealChoices = new ArrayList();
                 for (int i = 0; i < usableChoices.size(); i++) {
                     if (Math.abs(usableChoices.get(i).getWidth() - idealSize.getWidth()) <= 100 && Math.abs(usableChoices.get(i).getHeight() - idealSize.getHeight()) <= 100) {
-                        returnSize = usableChoices.get(i);
+                        idealChoices.add(usableChoices.get(i));
                     }
                 }
 
-                if (usableChoices.size() != 0 && usableChoices.get(0).getWidth() >= usableChoices.get((usableChoices.size() - 1)).getWidth()) {
-                    returnSize = usableChoices.get(0);
+                if (idealChoices.size() != 0 && idealChoices.get(0).getWidth() >= idealChoices.get((idealChoices.size() - 1)).getWidth()) {
+                    returnSize = idealChoices.get(0);
                 }
                 else{
                     returnSize = usableChoices.get((usableChoices.size()-1));
                 }
+
                 setPreviewWidth(returnSize.getWidth());
-                setPreviewHeight(returnSize.getHeight());
-                //mObserver.onPreviewSizeSet(returnSize);
+                setPreviewHeight(returnSize.getHeight());//mObserver.onPreviewSizeSet(returnSize);
                 //Check
                 //EventBus.getDefault().post(new CameraPreviewSizeEvent(returnSize));
                 //bus.post( new CameraPreviewSizeEvent(returnSize));

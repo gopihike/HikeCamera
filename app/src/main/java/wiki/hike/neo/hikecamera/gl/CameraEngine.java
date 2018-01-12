@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLSurfaceView;
 import android.os.Environment;
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.io.File;
@@ -13,7 +12,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import wiki.hike.neo.hikecamera.encoder.MediaAudioEncoder;
 import wiki.hike.neo.hikecamera.encoder.MediaEncoder;
 import wiki.hike.neo.hikecamera.encoder.MediaMuxerWrapper;
 import wiki.hike.neo.hikecamera.encoder.MediaVideoEncoder;
@@ -22,7 +20,6 @@ import wiki.hike.neo.hikecamera.encoder.MediaVideoEncoder;
 /**
  * Created by Neo on 09/10/17.
  */
-
 //Programming practices to be followed
 //Please try to right only pure functions.
 //Less or no use of booleans.
@@ -34,7 +31,6 @@ import wiki.hike.neo.hikecamera.encoder.MediaVideoEncoder;
     //Create renderer
     //Create filter from factory and set it in renderer
     //Set renderer in surfaceview.
-
 
 public class CameraEngine {
 
@@ -80,6 +76,9 @@ public class CameraEngine {
     private final RendererObserver mObserverRenderer = new RendererObserver();
 
     public CameraEngine(GLSurfaceView surfaceView, Context context) {
+        Log.e("RESUME","++CAMERA_ENGINE_CREATED");
+
+        //Face filter
         mSurfaceView = surfaceView;
         mContext = context;
 
@@ -98,20 +97,27 @@ public class CameraEngine {
         mSurfaceView.setPreserveEGLContextOnPause(true);
         mSurfaceView.setEGLContextClientVersion(2);
 
-        mFilter = new FilterOES();
+
+        mFilter = new FilterPreviewBuffer();
         mCameraRenderer.setFilter(mFilter);
 
         //Call back generated.
         mSurfaceView.setRenderer(mCameraRenderer);
         mSurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        //mCameraManager.startCamera(CameraManager.getCameraFacing());
+
         setEngineState(ENGINE_STATE_CREATE);
+        Log.e("RESUME","--CAMERA_ENGINE_CREATED");
     }
+
+
 
     public void setGLSurfaceView(GLSurfaceView surfaceView) {
     }
 
     public void onDestroy() {
 
+        Log.e("RESUME","--CAMERA_ENGINE_DESTROYED");
     }
 
     //Inflip operation camera is destoryed and created again so previewBuffer needs to be created
@@ -136,25 +142,36 @@ public class CameraEngine {
     {
         if(getEngineState() == ENGINE_STATE_PAUSE)
         {
+            Log.e("RESUME","++CAMERA_ENGINE_onResumeAfterPause");
+
             //Green frame might be seen when Filter type is preview buffer because for one frame cycle there will be no camera frame available for renderer to draw
             //but draw call will be active so draw will be called and because of YUV to RGB conversion logic green frame might be seen.
             //Fix would be not to draw until valid camera frame is available.
+            mSurfaceView.onResume();
             mCameraManager.onResume();
-            mCameraRenderer.setCallBackBasedOnFilter();
+            //Recreate camera.
+            mCameraRenderer.m_startVal = 2.0f;
+
+            //When user is coming from onPause setPreviewCallback again.
+            mCameraRenderer.initPreviewBufferCallBack();
+            Log.e("RESUME","--CAMERA_ENGINE_onResumeAfterPause");
+            //mCameraRenderer.setCallBackBasedOnFilter();
         }
-        mSurfaceView.onResume();
 
         setEngineState(ENGINE_STATE_RESUME);
     }
 
     public  void onPause()
     {
+        Log.e("RESUME","++CAMERA_ENGINE_onPause");
         if(getmRecordingState() == RECORDING_STATE_ON)
             stopRecording();
 
         mSurfaceView.onPause();
         mCameraManager.onPause();
         setEngineState(ENGINE_STATE_PAUSE);
+        Log.e("RESUME","--CAMERA_ENGINE_onPause");
+
     }
 
     public void processCommand(int command)
@@ -175,7 +192,7 @@ public class CameraEngine {
                 //Recalculate texture buffer
                 //mCameraRenderer.createFrontAndBackBuffer(640,480 );
                 //mCameraRenderer.flip(CameraManager.getCameraFacing());
-                //mCameraRenderer.setFilter(new FilterFace());
+                //mCameraRenderer.setFilter(new FilterFaceTest());
 
                 int recordingState =  getmRecordingState() == CameraEngine.RECORDING_STATE_ON ? CameraEngine.RECORDING_STATE_OFF : CameraEngine.RECORDING_STATE_ON;
                 setRecordingState(recordingState);
@@ -238,7 +255,7 @@ public class CameraEngine {
         @Override
         public void onSurfaceTextureCreated(SurfaceTexture surfaceTexture){
             mCameraManager.setSurfaceTexture(surfaceTexture);
-            mCameraRenderer.initPreviewFrameRenderer(/*mCameraManager.getWidth(),mCameraManager.getHeight()*/);
+            mCameraRenderer.initPreviewFrameRenderer(mCameraManager.getWidth(),mCameraManager.getHeight());
         }
     }
 

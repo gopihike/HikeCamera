@@ -104,6 +104,11 @@ public class Filter {
         return mRenderType;
     }
 
+    public void init(int surfaceWidth,int surfaceHeight,int previewWidth,int previewHeight)
+    {
+
+    }
+
     public void init()
     {
         onInit();
