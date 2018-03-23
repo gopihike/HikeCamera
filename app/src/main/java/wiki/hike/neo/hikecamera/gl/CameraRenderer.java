@@ -165,7 +165,100 @@ public class CameraRenderer implements
 	}
 
 	//Video. Kindly beautify this piece of code.VideoEncoder should act as filter.
-	public void setVideoEncoder(MediaVideoEncoder videoEncoder)
+	public void setVideoEncoder(final MediaVideoEncoder videoEncoder) {
+		//NOTE : Synchronization is achieved via one time start queue
+		//Example Edge case : Job1  videoEncoder set ,Job2 videoEncoder set to null
+		//Job2 comes before allways queues get executed.Below synchronization will handle that.
+		runOnDrawStart(new Runnable() {
+			@Override
+			public void run() {
+				mVideoEncoder = videoEncoder;
+				if (mVideoEncoder == null) {
+					if (mRunOnDrawStartAlwaysIndex != null) {
+						//This cannot be null.
+						for (int i = 0; i < mRunOnDrawStartAlwaysIndex.size(); i++) {
+							Integer item = mRunOnDrawStartAlwaysIndex.get(i);
+							if (item.equals(m_videoBufferId)) {
+								mRunOnDrawStartAlwaysIndex.remove(i);
+								break;
+							}
+						}
+
+						for (int i = 0; i < mRunOnDrawEndAlwaysIndex.size(); i++) {
+							Integer item = mRunOnDrawEndAlwaysIndex.get(i);
+							if (item.equals(m_videoBufferId)) {
+								mRunOnDrawEndAlwaysIndex.remove(i);
+								break;
+							}
+						}
+
+						for (int i = 0; i < mRunOnDrawStartAlways.size(); i++) {
+							Runnable item = mRunOnDrawStartAlways.get(i);
+							if (item.equals(m_videoBufferId)) {
+								mRunOnDrawStartAlways.remove(i);
+								break;
+							}
+						}
+
+						for (int i = 0; i < mRunOnDrawEndAlways.size(); i++) {
+							Runnable item = mRunOnDrawEndAlways.get(i);
+							if (item.equals(m_videoBufferId)) {
+								mRunOnDrawEndAlways.remove(i);
+								break;
+							}
+						}
+
+						//NOTE : Clear all the always jobs.
+						mRunOnDrawStartAlwaysIndex.clear();
+						mRunOnDrawEndAlwaysIndex.clear();
+						mRunOnDrawStartAlways.clear();
+						mRunOnDrawEndAlways.clear();
+					}
+
+					//NOTE : CAM-1313 This is not necessary but added for safety.
+					if (mFilterRecorder == null) {
+						mFilterRecorder.onDestroy();
+						mFilterRecorder = null;
+					}
+
+
+					if (mFrameBuffer != null)
+						mFrameBuffer.releaseFrameBuffer();
+					mFrameBuffer = null;
+
+				} else {
+					mFilterRecorder = new FilterRecorder();
+					mFilterRecorder.init();
+
+					//NOTE: If frame buffer recorder creation fails then backtrack.Error handling is around frame buffer creation only.
+					mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO, mSurfaceWidth, mSurfaceHeight);
+
+					mVideoEncoder.setEglContext(EGL14.eglGetCurrentContext(), mFrameBuffer.getTextureID());
+					runOnDrawStartAlways(new Runnable() {
+						@Override
+						public void run() {
+							//NOTE : Added to check if always quueue gets processed after stop has come.
+							mFrameBuffer.bindFrameBuffer();
+						}
+					}, m_videoBufferId);
+
+					runOnDrawEndAlways(new Runnable() {
+						@Override
+						public void run() {
+
+							mVideoEncoder.frameAvailableSoon();
+
+							GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+
+							mFilterRecorder.onDraw(mFrameBuffer.getTextureIDArr(), mElementBufferObjectId);
+						}
+					}, m_videoBufferId);
+				}
+			}
+		});
+	}
+
+	/*public void setVideoEncoder(MediaVideoEncoder videoEncoder)
 	{
 		this.mVideoEncoder = videoEncoder;
 		if(videoEncoder == null)
@@ -221,7 +314,7 @@ public class CameraRenderer implements
 			runOnDrawEndAlways(new Runnable() {
 				@Override
 				public void run() {
-					mVideoEncoder.frameAvailableSoon(/*mGLCubeBuffer, mGLTextureBuffer*/);
+					mVideoEncoder.frameAvailableSoon(*//*mGLCubeBuffer, mGLTextureBuffer*//*);
 					//VIDEO: Put this call inside end queue that process till start and end recording.
 					GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
 					//Create a filter of type  Sampler2D.
@@ -229,7 +322,7 @@ public class CameraRenderer implements
 				}
 			},m_videoBufferId);
 		}
-   }
+   }*/
 
 	//Called after startpreview has started.
 	public void initPreviewFrameRenderer(int previewWidth,int previewHeight)
