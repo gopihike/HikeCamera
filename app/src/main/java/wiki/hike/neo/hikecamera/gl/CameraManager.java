@@ -1,16 +1,14 @@
 package wiki.hike.neo.hikecamera.gl;
-import android.content.res.Configuration;
+
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.Build;
-import android.util.Size;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import wiki.hike.neo.hikecamera.utils.CameraEngineBackgroundHandler;
 
 
 /**
