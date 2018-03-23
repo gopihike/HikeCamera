@@ -12,9 +12,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
+import wiki.hike.neo.hikecamera.encoder.MediaAudioEncoder;
 import wiki.hike.neo.hikecamera.encoder.MediaEncoder;
 import wiki.hike.neo.hikecamera.encoder.MediaMuxerWrapper;
 import wiki.hike.neo.hikecamera.encoder.MediaVideoEncoder;
+import wiki.hike.neo.hikecamera.encoder.SoundFilter;
 
 
 /**
@@ -73,6 +75,9 @@ public class CameraEngine {
     //Create a filter factory;
     Filter mFilter;
 
+    private SoundFilter mSoundFilter;
+    private String mAudioFilePath = null;
+
     private final RendererObserver mObserverRenderer = new RendererObserver();
 
     public CameraEngine(GLSurfaceView surfaceView, Context context) {
@@ -107,6 +112,10 @@ public class CameraEngine {
         //mCameraManager.startCamera(CameraManager.getCameraFacing());
 
         setEngineState(ENGINE_STATE_CREATE);
+
+        mAudioFilePath = "/sdcard/HikeStudio/bg_music_1.mp3";
+
+        checkAndPlayAudioFilter();
         Log.e("RESUME","--CAMERA_ENGINE_CREATED");
     }
 
@@ -116,6 +125,10 @@ public class CameraEngine {
     }
 
     public void onDestroy() {
+
+
+        if(mSoundFilter != null)
+            mSoundFilter.releaseFilter();
 
         Log.e("RESUME","--CAMERA_ENGINE_DESTROYED");
     }
@@ -147,6 +160,11 @@ public class CameraEngine {
             //Green frame might be seen when Filter type is preview buffer because for one frame cycle there will be no camera frame available for renderer to draw
             //but draw call will be active so draw will be called and because of YUV to RGB conversion logic green frame might be seen.
             //Fix would be not to draw until valid camera frame is available.
+
+
+            if(mSoundFilter != null)
+                mSoundFilter.resumeFilterSound();
+
             mSurfaceView.onResume();
             mCameraManager.onResume();
             //Recreate camera.
@@ -164,6 +182,11 @@ public class CameraEngine {
     public  void onPause()
     {
         Log.e("RESUME","++CAMERA_ENGINE_onPause");
+
+
+        if(mSoundFilter != null)
+            mSoundFilter.pauseFilterSound();
+
         if(getmRecordingState() == RECORDING_STATE_ON)
             stopRecording();
 
@@ -203,6 +226,33 @@ public class CameraEngine {
         }
     }
 
+    public void checkAndPlayAudioFilter() {
+        if (mAudioFilePath != null) {
+            initSoundFilter();
+            mSoundFilter.setFilter(mContext, mAudioFilePath);
+            mSoundFilter.prepareAndStartFilter();
+        } else {
+            stopSoundFilter();
+        }
+    }
+
+    private void initSoundFilter() {
+        if (mSoundFilter == null) {
+            mSoundFilter = new SoundFilter();
+            return;
+        }
+        mSoundFilter.resetFilterSound(); // reset if sound filter obj is present
+    }
+
+    private void stopSoundFilter() {
+        if (mSoundFilter != null) {
+            mSoundFilter.stopFilterSound();
+            mSoundFilter.releaseFilter();
+            mSoundFilter = null;
+            mAudioFilePath = null;
+        }
+    }
+
     void setRecordingState(int state) {
         mRecordingState = state;
         switch (mRecordingState) {
@@ -212,14 +262,14 @@ public class CameraEngine {
                     //File cacheDir = mContext.getCacheDir();
                     //cacheDir.mkdirs();
                     String file_path = Environment.getExternalStorageDirectory().getAbsolutePath() +
-                            "/Hike";
+                            "/HikeStudio";
                     File dir = new File(file_path);
                     if(!dir.exists())
                         dir.mkdirs();
                     mVideoFile = new File(dir, fileName);
                     mMuxer = new MediaMuxerWrapper(".mp4", mVideoFile.getAbsolutePath());    // for audio change to m4a
                     new MediaVideoEncoder(mMuxer, mMediaEncoderListener, mCameraRenderer.getSurfaceWidth(), mCameraRenderer.getSurfaceHeight());
-                    //new MediaAudioEncoder(mMuxer, mMediaEncoderListener, null);
+                    new MediaAudioEncoder(mMuxer, mMediaEncoderListener, mAudioFilePath);
                     mMuxer.prepare();
                     mMuxer.startRecording();
                 } catch (final IOException e)

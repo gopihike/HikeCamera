@@ -146,8 +146,8 @@ public class CameraRenderer implements
 
 	public void createFrontAndBackBuffer(int width,int height)
 	{
-		//mPreviewWidth = width;
-		//smPreviewHeight = height;
+		mPreviewWidth = width;
+		mPreviewHeight = height;
 
 		//Create all buffers before hand.
 		mVertexBufferFront = ByteBuffer.allocateDirect(mVerticesFrontCamera.length * FLOAT_SIZE_BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -235,8 +235,6 @@ public class CameraRenderer implements
 	public void initPreviewFrameRenderer(int previewWidth,int previewHeight)
 	{
 		//setFilter(new FilterFaceTest(mSurfaceWidth,mSurfaceHeight,mPreviewWidth,mPreviewHeight));
-
-		createFrontAndBackBuffer(previewWidth,previewHeight);
 
 		runOnDrawStart(new Runnable() {
 			@Override
@@ -366,7 +364,6 @@ public class CameraRenderer implements
 		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
 		//Decision to be taken whether we should create front and back buffer separately or should create only one.
 		//Flip time to be measured with both
-		flip(mManager.getCameraFacing());
 
 		//generate camera texture------------------------
 		mCameraTexture.init();
@@ -486,10 +483,7 @@ public class CameraRenderer implements
 
 	public void flip(final int cameraFacing)
 	{
-		//Create buffers during construction.
-		runOnDrawStart(new Runnable() {
-			@Override
-			public void run() {
+
 
 				int[] vboIds = new int[2];
 				GLES20.glGenBuffers(2, vboIds, 0);
@@ -508,8 +502,7 @@ public class CameraRenderer implements
 
 				GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, mElementBufferObjectId);
 				GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, mIndexBuffer.capacity() * SHORT_SIZE_BYTES, mIndexBuffer, GLES20.GL_STATIC_DRAW);
-			}
-		});
+
 	}
 
 
@@ -534,6 +527,14 @@ public class CameraRenderer implements
 		//Video
 		//mFrameBuffer = new FrameBuffer(FrameBuffer.TEXTURE_2D_FBO,mSurfaceWidth,mSurfaceHeight);
 		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);*/
+		mSurfaceWidth = width;
+		mSurfaceHeight = height;
+
+		createFrontAndBackBuffer(mPreviewWidth, mPreviewHeight);
+
+		flip(mManager.getCameraFacing());
+
+		GLES20.glViewport(0, 0, mSurfaceWidth, mSurfaceHeight);
 
 	}
 
