@@ -271,6 +271,9 @@ public class CameraEngine {
                     new MediaVideoEncoder(mMuxer, mMediaEncoderListener, mCameraRenderer.getSurfaceWidth(), mCameraRenderer.getSurfaceHeight());
                     new MediaAudioEncoder(mMuxer, mMediaEncoderListener, mAudioFilePath);
                     mMuxer.prepare();
+                    if (mSoundFilter != null) {
+                        mSoundFilter.seekToTime(-1);
+                    }
                     mMuxer.startRecording();
                 } catch (final IOException e)
                 {
@@ -279,6 +282,9 @@ public class CameraEngine {
                 break;
             case RECORDING_STATE_OFF:
                 if (mMuxer != null) {
+                    if(mSoundFilter != null){
+                        mSoundFilter.pauseFilterSound();
+                    }
                     mMuxer.stopRecording();
                     mMuxer = null;
                 }
